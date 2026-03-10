@@ -1,6 +1,6 @@
 {
   "role": {
-    "name": "hmpps-template-kotlin"
+    "name": "hmpps-arns-assessment-view-api"
   },
   "customDimensions": {
     "service.version": "${BUILD_NUMBER}"
