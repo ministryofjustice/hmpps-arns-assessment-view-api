@@ -1,0 +1,4 @@
+spring.main.web-application-type: none
+
+sync:
+  since-hours: 5

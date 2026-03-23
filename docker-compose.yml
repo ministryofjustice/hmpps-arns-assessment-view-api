@@ -1,31 +1,91 @@
 services:
   hmpps-arns-assessment-view-api:
-    image: ghcr.io/ministryofjustice/hmpps-arns-assessment-view-api:latest
+    build:
+      context: .
+      target: development
     networks:
       - hmpps
-    container_name: hmpps-arns-assessment-view-api
+    depends_on:
+      - postgres
+      - hmpps-auth
+      - coordinator-api
+      - aap-api
+    command: sh -c "gradle compileKotlin --continuous --parallel --build-cache & gradle --parallel --build-cache bootRun"
+    volumes:
+      - ./:/app
+      - ./.gradle:/home/gradle/.gradle
     ports:
       - "8080:8080"
+      - "5005:5005"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/ping"]
+      interval: 5s
+      retries: 100
     environment:
-      - SERVER_PORT=8080
-      - HMPPS_AUTH_URL=http://hmpps-auth:8080/auth
-      - SPRING_PROFILES_ACTIVE=dev
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: api,dev
+      HMPPS_AUTH_URL: http://hmpps-auth:9090/auth
+      DATABASE_ENDPOINT: postgres:5432
+      COORDINATOR_API_BASE_URL: http://coordinator-api:8080
+      AAP_API_BASE_URL: http://aap-api:8080
 
-  hmpps-auth:
-    image: ghcr.io/ministryofjustice/hmpps-auth:latest
+  coordinator-api:
+    image: ghcr.io/ministryofjustice/hmpps-assess-risks-and-needs-coordinator-api:latest
     networks:
       - hmpps
-    container_name: hmpps-auth
-    ports:
-      - "8090:8080"
+    depends_on:
+      - postgres
+      - hmpps-auth
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/health"]
+      test: ["CMD", "curl", "-f", "http://coordinator-api:8080/health/ping"]
+      interval: 5s
+      retries: 100
     environment:
-      - SERVER_PORT=8080
-      - SPRING_PROFILES_ACTIVE=dev
-      - APPLICATION_AUTHENTICATION_UI_ALLOWLIST=0.0.0.0/0
+      SERVER_PORT: 8080
+      APP_DB_ENDPOINT: postgres:5432
+      HMPPS_AUTH_BASE_URL: http://hmpps-auth:9090/auth
+      CLIENT_ID: hmpps-assess-risks-and-needs-oastub-ui
+      CLIENT_SECRET: clientsecret
+
+  aap-api:
+    image: ghcr.io/ministryofjustice/hmpps-arns-assessment-platform-api:latest
+    networks:
+      - hmpps
+    depends_on:
+      - postgres
+      - hmpps-auth
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://aap-api:8080/health/ping"]
+      interval: 5s
+      retries: 100
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: dev,postgres
+      DATABASE_ENDPOINT: postgres:5432
+      HMPPS_AUTH_URL: http://hmpps-auth:9090/auth
+
+  postgres:
+    image: postgres:16
+    networks:
+      - hmpps
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: dev
+    tmpfs:
+      - /var/lib/postgresql
+
+  hmpps-auth:
+    image: ghcr.io/ministryofjustice/hmpps-auth:2026-03-02.422.c36796f
+    networks:
+      - hmpps
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://hmpps-auth:9090/auth/health"]
+      interval: 5s
+      retries: 100
+    environment:
+      SERVER_PORT: 9090
+      SPRING_PROFILES_ACTIVE: dev
+      APPLICATION_AUTHENTICATION_UI_ALLOWLIST: 0.0.0.0/0
 
 networks:
   hmpps:
