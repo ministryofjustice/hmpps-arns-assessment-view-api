@@ -73,6 +73,19 @@ make lint              # run linter
 make lint-fix          # run linter and auto-fix
 ```
 
+## CI/CD
+
+GitHub Actions workflows in `.github/workflows/`:
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `pipeline.yml` | Push to any branch | Runs unit tests, integration tests, helm lint. On `main`: builds docker image and deploys to dev. |
+| `deploy_to_env.yml` | Called by pipeline | Deploys to a specific environment |
+| `security_owasp.yml` | Scheduled (weekdays) | OWASP dependency vulnerability scan |
+| `security_codeql_actions_scan.yml` | Scheduled (weekdays) | CodeQL static analysis |
+| `security_veracode_pipeline_scan.yml` | Scheduled (weekdays) | Veracode pipeline security scan |
+| `security_veracode_policy_scan.yml` | Scheduled (weekdays) | Veracode policy security scan |
+
 ## Common Kotlin Patterns
 
 Many patterns have evolved for HMPPS Kotlin applications. Using these patterns provides consistency across our suite of
