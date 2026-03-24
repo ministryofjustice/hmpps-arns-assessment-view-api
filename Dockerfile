@@ -1,4 +1,9 @@
 ARG BASE_IMAGE=ghcr.io/ministryofjustice/hmpps-eclipse-temurin:25-jre-jammy
+
+FROM gradle:9-jdk25-alpine AS development
+RUN apk add --no-cache curl
+WORKDIR /app
+
 FROM --platform=$BUILDPLATFORM ${BASE_IMAGE} AS builder
 
 ARG BUILD_NUMBER

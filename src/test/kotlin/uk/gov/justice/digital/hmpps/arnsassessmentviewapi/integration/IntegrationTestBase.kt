@@ -14,7 +14,7 @@ import uk.gov.justice.hmpps.test.kotlin.auth.JwtAuthorisationHelper
 
 @ExtendWith(HmppsAuthApiExtension::class)
 @SpringBootTest(webEnvironment = RANDOM_PORT)
-@ActiveProfiles("test")
+@ActiveProfiles("api", "test")
 @AutoConfigureWebTestClient
 abstract class IntegrationTestBase {
 

@@ -47,22 +47,34 @@ jobs:
       - id: app_version
         name: Application version creators
         uses: ministryofjustice/hmpps-github-actions/.github/actions/build-test-and-deploy/create_app_version@v2 # WORKFLOW_VERSION
-  gradle_verify:
-    name: Validate the kotlin
+  unit_test:
+    name: Unit tests
+    needs:
+      - app_version
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/gradle_verify.yml@v2 # WORKFLOW_VERSION
     secrets: inherit
     with:
-      gradle-command: 'BUILD_NUMBER=${{ needs.app_version.outputs.version}} ./gradlew assemble check'
+      gradle-command: 'BUILD_NUMBER=${{ needs.app_version.outputs.version}} ./gradlew assemble test'
       upload-build-artifacts: ${{ github.ref == 'refs/heads/main' }}
+      artifact-name: unit-test-results
       java-version: "25"
+  integration_test:
+    name: Integration tests
     needs:
       - app_version
+    uses: ministryofjustice/hmpps-github-actions/.github/workflows/gradle_verify.yml@v2 # WORKFLOW_VERSION
+    secrets: inherit
+    with:
+      gradle-command: 'BUILD_NUMBER=${{ needs.app_version.outputs.version}} ./gradlew integrationTest'
+      artifact-name: integration-test-results
+      java-version: "25"
   build:
     name: Build docker image from hmpps-github-actions
     if: github.ref == 'refs/heads/main'
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/docker_build.yml@v2 # WORKFLOW_VERSION
     needs:
-      - gradle_verify
+      - unit_test
+      - integration_test
     with:
       docker_registry: 'ghcr.io'
       registry_org: 'ministryofjustice'
