@@ -10,7 +10,7 @@ services:
       - hmpps-auth
       - coordinator-api
       - aap-api
-    command: sh -c "gradle compileKotlin --continuous --parallel --build-cache & gradle --parallel --build-cache bootRun"
+    command: gradle --parallel --build-cache bootRun
     volumes:
       - ./:/app
       - ./.gradle:/home/gradle/.gradle
@@ -46,6 +46,8 @@ services:
       HMPPS_AUTH_BASE_URL: http://hmpps-auth:9090/auth
       CLIENT_ID: hmpps-assess-risks-and-needs-oastub-ui
       CLIENT_SECRET: clientsecret
+      SAN_API_BASE_URL: http://localhost:8080
+      SP_API_BASE_URL: http://localhost:8080
 
   aap-api:
     image: ghcr.io/ministryofjustice/hmpps-arns-assessment-platform-api:latest
