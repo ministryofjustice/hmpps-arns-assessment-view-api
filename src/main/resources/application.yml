@@ -24,3 +24,30 @@ spring:
   web:
     error:
       include-message: always
+
+  datasource:
+    url: jdbc:postgresql://${database.endpoint:localhost:5432}/${database.name:postgres}?currentSchema=${database.schema.name:assessment-view}&stringtype=unspecified
+    username: ${database.username:root}
+    password: ${database.password:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 15000
+      leakDetectionThreshold: 20000
+
+  flyway:
+    schemas: ${database.schema.name:assessment-view}
+    create-schemas: true
+    locations: classpath:/db/migration
+
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    show-sql: false
+
+springdoc:
+  swagger-ui:
+    version: 5.32.1

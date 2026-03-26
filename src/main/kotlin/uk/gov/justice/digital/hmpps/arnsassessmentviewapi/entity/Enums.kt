@@ -1,0 +1,57 @@
+package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity
+
+enum class IdentifierType {
+  CRN,
+  NOMIS,
+}
+
+enum class PlanStatus {
+  DRAFT,
+  AGREED,
+  DO_NOT_AGREE,
+  COULD_NOT_ANSWER,
+  UPDATED_AGREED,
+  UPDATED_DO_NOT_AGREE,
+}
+
+enum class CriminogenicNeed {
+  ACCOMMODATION,
+  EMPLOYMENT_AND_EDUCATION,
+  FINANCES,
+  DRUG_USE,
+  ALCOHOL_USE,
+  HEALTH_AND_WELLBEING,
+  PERSONAL_RELATIONSHIPS_AND_COMMUNITY,
+  THINKING_BEHAVIOURS_AND_ATTITUDES,
+}
+
+enum class GoalStatus {
+  ACTIVE,
+  FUTURE,
+  ACHIEVED,
+  REMOVED,
+}
+
+enum class StepStatus {
+  NOT_STARTED,
+  IN_PROGRESS,
+  COMPLETED,
+  CANNOT_BE_DONE_YET,
+  NO_LONGER_NEEDED,
+}
+
+enum class ActorType {
+  PERSON_ON_PROBATION,
+  PROBATION_PRACTITIONER,
+  PROGRAMME_STAFF,
+  PARTNERSHIP_AGENCY,
+  CRS_PROVIDER,
+  PRISON_OFFENDER_MANAGER,
+  SOMEONE_ELSE,
+}
+
+enum class FreeTextType {
+  GOAL_NOTE,
+  AGREEMENT_DETAILS,
+  AGREEMENT_NOTES,
+}

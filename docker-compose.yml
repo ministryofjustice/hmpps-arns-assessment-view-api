@@ -1,5 +1,5 @@
 services:
-  hmpps-arns-assessment-view-api:
+  assessment-view-api:
     build:
       context: .
       target: development
@@ -7,16 +7,9 @@ services:
       - hmpps
     depends_on:
       - postgres
-      - hmpps-auth
       - coordinator-api
       - aap-api
     command: gradle --parallel --build-cache bootRun
-    volumes:
-      - ./:/app
-      - ./.gradle:/home/gradle/.gradle
-    ports:
-      - "8080:8080"
-      - "5005:5005"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/ping"]
       interval: 5s
@@ -71,8 +64,8 @@ services:
     networks:
       - hmpps
     environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: root
-      POSTGRES_PASSWORD: dev
     tmpfs:
       - /var/lib/postgresql
 
