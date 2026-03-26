@@ -26,7 +26,7 @@ The sync mode calls the Coordinator API to resolve OASys assessment PKs for each
 Start all services with live reload:
 
 ```bash
-make up
+make dev-up
 ```
 
 To pull the latest images:
@@ -59,19 +59,29 @@ All services run on an internal Docker network. Only the Assessment View API is 
 |---------|---------|
 | `api`   | API server mode — serves consumer endpoints |
 | `sync`  | Sync mode — pulls data from AAP-API then exits (no web server) |
-| `dev`   | Local development overrides (auth URL, swagger UI) |
-| `test`  | Integration test overrides |
+| `dev`   | Local development overrides (devtools, local auth URL, debug logging) |
+| `test`  | Test overrides (fast shutdown, show SQL) |
+
+Profiles are combined as **mode + environment**:
+
+|  | Deployed (K8s) | Local dev | Test |
+|---|----------------|---|---|
+| **API** | `api`          | `api,dev` | `api,test` |
+| **Sync** | `sync`         | `sync,dev` | `sync,test` |
 
 ## Testing
 
 Unit and integration tests are split into separate Gradle tasks. Unit tests (`src/test/**/unit/`) verify isolated logic with no external dependencies — all collaborators are mocked. Integration tests (`src/test/**/integration/`) verify service behaviour with external dependencies mocked using tools like WireMock.
 
 ```bash
+make test              # all tests (unit + integration)
 make unit-test         # unit tests only
 make integration-test  # integration tests only
 make lint              # run linter
 make lint-fix          # run linter and auto-fix
 ```
+
+Tests run inside the Docker Compose container, connecting to the compose postgres instance. Start `make dev-up` before running tests.
 
 ## CI/CD
 

@@ -39,49 +39,25 @@ jobs:
     secrets: inherit
     with:
       environment: ${{ matrix.environments }}
-  app_version:
+  validate:
+    name: Lint and test
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.app_version.outputs.version }}
     steps:
-      - id: app_version
-        name: Application version creators
-        uses: ministryofjustice/hmpps-github-actions/.github/actions/build-test-and-deploy/create_app_version@v2 # WORKFLOW_VERSION
-  unit_test:
-    name: Unit tests
-    needs:
-      - app_version
-    uses: ministryofjustice/hmpps-github-actions/.github/workflows/gradle_verify.yml@v2 # WORKFLOW_VERSION
-    secrets: inherit
-    with:
-      gradle-command: 'BUILD_NUMBER=${{ needs.app_version.outputs.version}} ./gradlew assemble test'
-      upload-build-artifacts: ${{ github.ref == 'refs/heads/main' }}
-      artifact-name: unit-test-results
-      java-version: "25"
-  integration_test:
-    name: Integration tests
-    needs:
-      - app_version
-    uses: ministryofjustice/hmpps-github-actions/.github/workflows/gradle_verify.yml@v2 # WORKFLOW_VERSION
-    secrets: inherit
-    with:
-      gradle-command: 'BUILD_NUMBER=${{ needs.app_version.outputs.version}} ./gradlew integrationTest'
-      artifact-name: integration-test-results
-      java-version: "25"
+      - uses: actions/checkout@v6
+      - name: Validate
+        run: make dev-up lint test
   build:
     name: Build docker image from hmpps-github-actions
     if: github.ref == 'refs/heads/main'
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/docker_build.yml@v2 # WORKFLOW_VERSION
     needs:
-      - unit_test
-      - integration_test
+      - validate
     with:
       docker_registry: 'ghcr.io'
       registry_org: 'ministryofjustice'
       additional_docker_tag: ${{ inputs.additional_docker_tag }}
       push: ${{ inputs.push || inputs.push == null }}
       docker_multiplatform: false
-      download_build_artifacts: true
   deploy_dev:
     name: Deploy to the development environment
     needs:

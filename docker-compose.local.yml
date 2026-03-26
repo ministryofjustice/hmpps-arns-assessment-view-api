@@ -1,0 +1,13 @@
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  hmpps-auth:
+    ports:
+      - "9090:9090"
+
+  assessment-view-api:
+    ports:
+      - "8080:8080"
+      - "5005:5005"
