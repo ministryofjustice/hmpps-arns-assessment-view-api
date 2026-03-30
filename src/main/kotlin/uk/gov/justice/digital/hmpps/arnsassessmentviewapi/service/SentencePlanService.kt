@@ -26,5 +26,7 @@ class SentencePlanService(
   }
 }
 
-class SentencePlanNotFoundException(identifierType: IdentifierType, identifierValue: String) :
-  RuntimeException("No sentence plans found for $identifierType/$identifierValue")
+class SentencePlanNotFoundException(
+  identifierType: IdentifierType,
+  identifierValue: String,
+) : RuntimeException("No sentence plans found for $identifierType/$identifierValue")
