@@ -1,4 +1,30 @@
-spring.main.web-application-type: none
+spring:
+  main:
+    web-application-type: none
 
-sync:
-  since-hours: 5
+  security:
+    oauth2:
+      client:
+        registration:
+          coordinator-api:
+            provider: hmpps-auth
+            client-id: ${app.client.id}
+            client-secret: ${app.client.secret}
+            authorization-grant-type: client_credentials
+          aap-api:
+            provider: hmpps-auth
+            client-id: ${app.client.id}
+            client-secret: ${app.client.secret}
+            authorization-grant-type: client_credentials
+
+app:
+  client:
+    id: ${API_CLIENT_ID}
+    secret: ${API_CLIENT_SECRET}
+  services:
+    coordinator-api:
+      base-url: ${COORDINATOR_API_BASE_URL}
+    aap-api:
+      base-url: ${AAP_API_BASE_URL}
+  sync:
+    since-hours: 5

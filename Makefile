@@ -1,6 +1,6 @@
 SHELL = '/bin/bash'
-LOCAL_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.local.yml
-DEV_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.dev.yml
+LOCAL_COMPOSE_FILES = -f docker/docker-compose.yml -f docker/docker-compose.local.yml
+DEV_COMPOSE_FILES = -f docker/docker-compose.yml -f docker/docker-compose.local.yml -f docker/docker-compose.dev.yml
 SERVICE_NAME = assessment-view-api
 
 default: help
@@ -17,11 +17,11 @@ down: ## Stops and removes all containers in the project.
 	docker compose ${LOCAL_COMPOSE_FILES} down
 
 dev-up: ## Starts/restarts the API in a development container.
-	docker compose down ${SERVICE_NAME}
+	docker compose ${DEV_COMPOSE_FILES} down ${SERVICE_NAME}
 	docker compose ${DEV_COMPOSE_FILES} up --wait --no-recreate ${SERVICE_NAME}
 
 dev-down: ## Stops and removes the API container.
-	docker compose down ${SERVICE_NAME}
+	docker compose ${DEV_COMPOSE_FILES} down ${SERVICE_NAME}
 
 test: ## Runs all the test suites.
 	docker compose ${DEV_COMPOSE_FILES} exec \
@@ -45,8 +45,9 @@ lint-fix: ## Runs the Kotlin linter and auto-fixes.
 	docker compose ${DEV_COMPOSE_FILES} exec ${SERVICE_NAME} gradle ktlintFormat --parallel
 
 update: ## Pulls the latest images for all services.
-	docker compose pull
+	docker compose ${LOCAL_COMPOSE_FILES} pull
 
 clean: ## Stops all services and deletes build directories.
-	docker compose down
+	docker compose ${DEV_COMPOSE_FILES} down
+	docker compose ${LOCAL_COMPOSE_FILES} down
 	rm -rf .gradle build
