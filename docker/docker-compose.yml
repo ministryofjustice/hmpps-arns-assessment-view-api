@@ -43,6 +43,7 @@ services:
       CLIENT_SECRET: clientsecret
       SAN_API_BASE_URL: http://localhost:8080
       SP_API_BASE_URL: http://localhost:8080
+      AAP_API_BASE_URL: http://aap-api:8080
 
   aap-api:
     image: ghcr.io/ministryofjustice/hmpps-arns-assessment-platform-api:latest
