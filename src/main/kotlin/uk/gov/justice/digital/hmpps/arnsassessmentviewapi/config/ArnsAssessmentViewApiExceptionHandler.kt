@@ -12,7 +12,9 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service.SentencePlanNotFoundException
 import uk.gov.justice.hmpps.kotlin.common.ErrorResponse
 
 @RestControllerAdvice
@@ -40,6 +42,34 @@ class ArnsAssessmentViewApiExceptionHandler {
         ErrorResponse(
           status = statusCode,
           userMessage = "Invalid payload: ${e.message}",
+          developerMessage = e.message,
+        ),
+      ).also { logException(e, statusCode) }
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+  fun handleException(e: MethodArgumentTypeMismatchException): ResponseEntity<ErrorResponse> {
+    val statusCode = BAD_REQUEST
+    return ResponseEntity
+      .status(statusCode)
+      .body(
+        ErrorResponse(
+          status = statusCode,
+          userMessage = "Invalid parameter: ${e.name}",
+          developerMessage = e.message,
+        ),
+      ).also { logException(e, statusCode) }
+  }
+
+  @ExceptionHandler(SentencePlanNotFoundException::class)
+  fun handleException(e: SentencePlanNotFoundException): ResponseEntity<ErrorResponse> {
+    val statusCode = NOT_FOUND
+    return ResponseEntity
+      .status(statusCode)
+      .body(
+        ErrorResponse(
+          status = statusCode,
+          userMessage = e.message,
           developerMessage = e.message,
         ),
       ).also { logException(e, statusCode) }
