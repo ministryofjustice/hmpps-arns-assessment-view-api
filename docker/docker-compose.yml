@@ -1,7 +1,7 @@
 services:
   assessment-view-api:
     build:
-      context: .
+      context: ..
       target: development
     networks:
       - hmpps
@@ -21,6 +21,8 @@ services:
       DATABASE_ENDPOINT: postgres:5432
       COORDINATOR_API_BASE_URL: http://coordinator-api:8080
       AAP_API_BASE_URL: http://aap-api:8080
+      API_CLIENT_ID: hmpps-arns-assessment-view-api
+      API_CLIENT_SECRET: clientsecret
 
   coordinator-api:
     image: ghcr.io/ministryofjustice/hmpps-assess-risks-and-needs-coordinator-api:latest
@@ -68,19 +70,29 @@ services:
       POSTGRES_USER: root
     tmpfs:
       - /var/lib/postgresql
+    volumes:
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
 
   hmpps-auth:
-    image: ghcr.io/ministryofjustice/hmpps-auth:2026-03-02.422.c36796f
+    image: ghcr.io/ministryofjustice/hmpps-auth:latest
     networks:
       - hmpps
+    depends_on:
+      - postgres
     healthcheck:
       test: ["CMD", "curl", "-f", "http://hmpps-auth:9090/auth/health"]
       interval: 5s
       retries: 100
+    volumes:
+      - ./hmpps-auth-seed:/custom-db
     environment:
       SERVER_PORT: 9090
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: dev,local-postgres
       APPLICATION_AUTHENTICATION_UI_ALLOWLIST: 0.0.0.0/0
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth-db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD:
+      SPRING_FLYWAY_LOCATIONS: classpath:db/auth,db/auth_postgresql,db/dev/data/auth_postgresql,db/dev/data/auth,filesystem:/custom-db
 
 networks:
   hmpps:
