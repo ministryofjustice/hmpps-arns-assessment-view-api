@@ -81,9 +81,10 @@ services:
     depends_on:
       - postgres
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://hmpps-auth:9090/auth/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9090/auth/health"]
       interval: 5s
       retries: 100
+      start_period: 60s
     volumes:
       - ./hmpps-auth-seed:/custom-db
     environment:
