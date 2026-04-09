@@ -97,5 +97,4 @@ class CoordinatorApiClientTest {
       coordinatorApiClient.getOasysPksForEntities(listOf(UUID.randomUUID()))
     }
   }
-
 }
