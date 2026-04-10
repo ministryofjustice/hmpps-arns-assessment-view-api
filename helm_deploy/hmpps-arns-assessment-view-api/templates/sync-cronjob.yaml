@@ -1,0 +1,31 @@
+{{- if $.Values.syncCronjob.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: record-sync
+spec:
+  schedule: {{ .Values.syncCronjob.schedule | quote }}
+  suspend: {{ .Values.syncCronjob.suspend }}
+  concurrencyPolicy: {{ .Values.syncCronjob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.syncCronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.syncCronjob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      template:
+        spec:
+          restartPolicy: {{ .Values.syncCronjob.restartPolicy }}
+          containers:
+            - name: {{ .Chart.Name }}-sync
+              image: "{{ (index .Values "generic-service").image.repository }}:{{ (index .Values "generic-service").image.tag }}"
+              imagePullPolicy: IfNotPresent
+              command:
+                - java
+                - -jar
+                - /app/app.jar
+              args:
+                - "--server.port=0"
+                - "--spring.profiles.active=sync"
+              {{- include "deployment.envs" (index .Values "generic-service") | nindent 14 }}
+{{- end }}

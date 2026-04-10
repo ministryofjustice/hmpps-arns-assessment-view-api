@@ -41,3 +41,14 @@ generic-service:
 
 generic-prometheus-alerts:
   targetApplication: hmpps-arns-assessment-view-api
+
+syncCronjob:
+  enabled: true
+  schedule: "0 */6 * * *"
+  suspend: false
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  restartPolicy: Never
+  alerting:
+    enabled: false
