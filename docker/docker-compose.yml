@@ -16,7 +16,7 @@ services:
       retries: 100
     environment:
       SERVER_PORT: 8080
-      SPRING_PROFILES_ACTIVE: api,dev
+      SPRING_PROFILES_ACTIVE: dev
       HMPPS_AUTH_URL: http://hmpps-auth:9090/auth
       DATABASE_ENDPOINT: postgres:5432
       COORDINATOR_API_BASE_URL: http://coordinator-api:8080
