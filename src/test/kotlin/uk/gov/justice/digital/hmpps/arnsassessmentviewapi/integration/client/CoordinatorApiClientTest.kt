@@ -22,7 +22,7 @@ import java.util.UUID
 
 @ExtendWith(HmppsAuthApiExtension::class, CoordinatorApiExtension::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("sync", "test")
+@ActiveProfiles("test")
 @TestPropertySource(
   properties = [
     "app.services.coordinator-api.base-url=http://localhost:8091",
