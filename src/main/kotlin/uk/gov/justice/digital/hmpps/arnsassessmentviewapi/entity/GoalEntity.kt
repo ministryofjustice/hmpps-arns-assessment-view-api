@@ -52,6 +52,9 @@ class GoalEntity(
   @Column(name = "updated_at", nullable = false)
   val updatedAt: Instant,
 
+  @Column(name = "goal_order", nullable = false)
+  val goalOrder: Int,
+
   @OneToMany(mappedBy = "goal", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
   val relatedAreasOfNeed: MutableList<GoalRelatedAreaOfNeedEntity> = mutableListOf(),

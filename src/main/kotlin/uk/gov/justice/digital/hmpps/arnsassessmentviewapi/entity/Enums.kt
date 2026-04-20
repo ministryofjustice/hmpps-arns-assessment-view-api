@@ -55,3 +55,11 @@ enum class FreeTextType {
   AGREEMENT_DETAILS,
   AGREEMENT_NOTES,
 }
+
+enum class GoalNoteType {
+  ACHIEVED,
+  REMOVED,
+  READDED,
+  UPDATED,
+  PROGRESS,
+}

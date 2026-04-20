@@ -18,7 +18,9 @@ import java.util.UUID
 data class SentencePlanResponse(
   val id: UUID,
   val identifiers: List<IdentifierResponse>,
-  val oasysPks: List<String>,
+  val oasysPk: Int?,
+  val version: Int,
+  val regionCode: String?,
   val goals: List<GoalResponse>,
   val agreements: List<PlanAgreementResponse>,
   val createdAt: Instant,
@@ -28,7 +30,9 @@ data class SentencePlanResponse(
     fun from(entity: SentencePlanEntity) = SentencePlanResponse(
       id = entity.id,
       identifiers = entity.identifiers.map { IdentifierResponse(it.type, it.value) },
-      oasysPks = entity.oasysPks.map { it.oasysAssessmentPk },
+      oasysPk = entity.oasysPk,
+      version = entity.version,
+      regionCode = entity.regionCode,
       goals = entity.goals.map { GoalResponse.from(it) },
       agreements = entity.agreements.map { PlanAgreementResponse.from(it) },
       createdAt = entity.createdAt,
