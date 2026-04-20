@@ -38,4 +38,11 @@ class FreeTextEntity(
 
   @Column(name = "created_at", nullable = false)
   val createdAt: Instant,
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "goal_note_type")
+  val goalNoteType: GoalNoteType? = null,
+
+  @Column(name = "text_hash")
+  val textHash: String? = null,
 )

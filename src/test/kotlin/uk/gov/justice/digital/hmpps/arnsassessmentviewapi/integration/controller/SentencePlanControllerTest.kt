@@ -16,7 +16,6 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.PlanAgreementEn
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.PlanStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanIdentifierEntity
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanOasysPkEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
@@ -40,6 +39,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
       id = UUID.randomUUID(),
       createdAt = Instant.now(),
       updatedAt = Instant.now(),
+      version = 1,
     )
     plan.identifiers.add(
       SentencePlanIdentifierEntity(
@@ -62,15 +62,14 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     agreementFreeTextId: UUID = UUID.randomUUID(),
     timestamp: Instant = Instant.parse("2025-06-01T12:00:00Z"),
   ): SentencePlanEntity {
-    val plan = SentencePlanEntity(id = planId, createdAt = timestamp, updatedAt = timestamp, lastSyncedAt = timestamp)
+    val plan = SentencePlanEntity(id = planId, createdAt = timestamp, updatedAt = timestamp, lastSyncedAt = timestamp, oasysPk = 1234567, version = 1, regionCode = "LDN")
 
     plan.identifiers.add(SentencePlanIdentifierEntity(id = UUID.randomUUID(), sentencePlan = plan, type = IdentifierType.CRN, value = crn))
-    plan.oasysPks.add(SentencePlanOasysPkEntity(sentencePlan = plan, oasysAssessmentPk = "1234567"))
 
     val goal = GoalEntity(
       id = goalId, sentencePlan = plan, title = "Find stable accommodation", areaOfNeed = CriminogenicNeed.ACCOMMODATION,
       targetDate = LocalDate.of(2025, 12, 31), status = GoalStatus.ACTIVE, statusDate = timestamp,
-      createdByUserId = "test-user", createdAt = timestamp, updatedAt = timestamp,
+      createdByUserId = "test-user", createdAt = timestamp, updatedAt = timestamp, goalOrder = 0,
     )
     goal.relatedAreasOfNeed.add(GoalRelatedAreaOfNeedEntity(goal = goal, criminogenicNeed = CriminogenicNeed.FINANCES))
     goal.steps.add(StepEntity(id = stepId, goal = goal, description = "Contact housing provider", actor = ActorType.PROBATION_PRACTITIONER, status = StepStatus.NOT_STARTED, statusDate = timestamp, createdByUserId = "test-user", createdAt = timestamp))
@@ -183,7 +182,9 @@ class SentencePlanControllerTest : IntegrationTestBase() {
             "createdAt": "2025-06-01T12:00:00Z",
             "updatedAt": "2025-06-01T12:00:00Z",
             "identifiers": [{ "type": "CRN", "value": "X123456" }],
-            "oasysPks": ["1234567"],
+            "oasysPk": 1234567,
+            "version": 1,
+            "regionCode": "LDN",
             "goals": [{
               "id": "$goalId",
               "title": "Find stable accommodation",

@@ -26,13 +26,18 @@ class SentencePlanEntity(
   @Column(name = "last_synced_at", nullable = false)
   val lastSyncedAt: Instant = Instant.now(),
 
-  @OneToMany(mappedBy = "sentencePlan", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
-  @BatchSize(size = 25)
-  val identifiers: MutableList<SentencePlanIdentifierEntity> = mutableListOf(),
+  @Column(name = "oasys_pk")
+  val oasysPk: Int? = null,
+
+  @Column(nullable = false)
+  val version: Int,
+
+  @Column(name = "region_code")
+  val regionCode: String? = null,
 
   @OneToMany(mappedBy = "sentencePlan", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
-  val oasysPks: MutableList<SentencePlanOasysPkEntity> = mutableListOf(),
+  val identifiers: MutableList<SentencePlanIdentifierEntity> = mutableListOf(),
 
   @OneToMany(mappedBy = "sentencePlan", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
