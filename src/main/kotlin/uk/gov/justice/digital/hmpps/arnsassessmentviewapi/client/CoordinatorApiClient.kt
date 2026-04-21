@@ -5,21 +5,22 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.EntityAssociationDetails
 import java.util.UUID
 
 @Component
 class CoordinatorApiClient(
   private val coordinatorApiWebClient: WebClient,
 ) {
-  fun getOasysPksForEntities(entityUuids: List<UUID>): Map<UUID, List<String>> {
+  fun getLatestAssociationDetails(entityUuids: List<UUID>): Map<UUID, EntityAssociationDetails> {
     if (entityUuids.isEmpty()) return emptyMap()
-    log.info("Fetching OASys PKs for {} entities", entityUuids.size)
+    log.info("Fetching association details for {} entities", entityUuids.size)
     return coordinatorApiWebClient.post()
       .uri("/entity/associations")
       .contentType(MediaType.APPLICATION_JSON)
       .bodyValue(entityUuids)
       .retrieve()
-      .bodyToMono<Map<UUID, List<String>>>()
+      .bodyToMono<Map<UUID, EntityAssociationDetails>>()
       .block() ?: emptyMap()
   }
 
