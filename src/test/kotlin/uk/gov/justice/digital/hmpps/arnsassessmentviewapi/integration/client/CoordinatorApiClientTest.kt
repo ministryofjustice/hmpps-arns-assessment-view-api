@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.CoordinatorApiClient
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.EntityAssociationDetails
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.CoordinatorApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.CoordinatorApiExtension.Companion.coordinatorApi
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.HmppsAuthApiExtension
@@ -44,31 +45,31 @@ class CoordinatorApiClientTest {
 
   @Test
   fun `returns empty map when given empty list`() {
-    val result = coordinatorApiClient.getOasysPksForEntities(emptyList())
+    val result = coordinatorApiClient.getLatestAssociationDetails(emptyList())
 
     assertThat(result).isEmpty()
     coordinatorApi.verify(0, postRequestedFor(urlEqualTo("/entity/associations")))
   }
 
   @Test
-  fun `sends entity UUIDs and returns mapped OASys PKs`() {
+  fun `sends entity UUIDs and returns mapped association details`() {
     val entityUuid1 = UUID.fromString("11111111-1111-1111-1111-111111111111")
     val entityUuid2 = UUID.fromString("22222222-2222-2222-2222-222222222222")
 
     coordinatorApi.stubEntityAssociations(
       """
       {
-        "11111111-1111-1111-1111-111111111111": ["100", "200"],
-        "22222222-2222-2222-2222-222222222222": ["300"]
+        "11111111-1111-1111-1111-111111111111": { "oasysAssessmentPk": "100", "regionPrisonCode": "LDN", "baseVersion": 2 },
+        "22222222-2222-2222-2222-222222222222": { "oasysAssessmentPk": "300", "regionPrisonCode": null, "baseVersion": 7 }
       }
       """,
     )
 
-    val result = coordinatorApiClient.getOasysPksForEntities(listOf(entityUuid1, entityUuid2))
+    val result = coordinatorApiClient.getLatestAssociationDetails(listOf(entityUuid1, entityUuid2))
 
     assertThat(result).hasSize(2)
-    assertThat(result[entityUuid1]).containsExactly("100", "200")
-    assertThat(result[entityUuid2]).containsExactly("300")
+    assertThat(result[entityUuid1]).isEqualTo(EntityAssociationDetails("100", "LDN", 2))
+    assertThat(result[entityUuid2]).isEqualTo(EntityAssociationDetails("300", null, 7))
 
     coordinatorApi.verify(
       postRequestedFor(urlEqualTo("/entity/associations"))
@@ -84,7 +85,7 @@ class CoordinatorApiClientTest {
   fun `returns empty map when downstream returns null`() {
     coordinatorApi.stubEntityAssociations("{}")
 
-    val result = coordinatorApiClient.getOasysPksForEntities(listOf(UUID.randomUUID()))
+    val result = coordinatorApiClient.getLatestAssociationDetails(listOf(UUID.randomUUID()))
 
     assertThat(result).isEmpty()
   }
@@ -94,7 +95,7 @@ class CoordinatorApiClientTest {
     coordinatorApi.stubEntityAssociations("""{"error": "Internal Server Error"}""", status = 500)
 
     assertThrows<WebClientResponseException.InternalServerError> {
-      coordinatorApiClient.getOasysPksForEntities(listOf(UUID.randomUUID()))
+      coordinatorApiClient.getLatestAssociationDetails(listOf(UUID.randomUUID()))
     }
   }
 }
