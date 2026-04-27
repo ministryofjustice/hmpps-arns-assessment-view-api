@@ -26,8 +26,11 @@ class GoalEntity(
   @JoinColumn(name = "sentence_plan_id", nullable = false)
   val sentencePlan: SentencePlanEntity,
 
-  @Column(nullable = false)
-  val title: String,
+  @Column(name = "title_length", nullable = false)
+  val titleLength: Int,
+
+  @Column(name = "title_hash", nullable = false)
+  val titleHash: String,
 
   @Enumerated(EnumType.STRING)
   @Column(name = "area_of_need", nullable = false)
@@ -42,9 +45,6 @@ class GoalEntity(
 
   @Column(name = "status_date")
   val statusDate: Instant? = null,
-
-  @Column(name = "created_by_user_id", nullable = false)
-  val createdByUserId: String,
 
   @Column(name = "created_at", nullable = false)
   val createdAt: Instant,

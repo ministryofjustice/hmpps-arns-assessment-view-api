@@ -24,7 +24,7 @@ class SentencePlanEntity(
   val updatedAt: Instant,
 
   @Column(name = "last_synced_at", nullable = false)
-  val lastSyncedAt: Instant = Instant.now(),
+  var lastSyncedAt: Instant = Instant.now(),
 
   @Column(name = "oasys_pk")
   val oasysPk: Int? = null,
@@ -34,6 +34,9 @@ class SentencePlanEntity(
 
   @Column(name = "region_code")
   val regionCode: String? = null,
+
+  @Column(name = "deleted", nullable = false)
+  var deleted: Boolean = false,
 
   @OneToMany(mappedBy = "sentencePlan", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
