@@ -21,6 +21,7 @@ data class SentencePlanResponse(
   val oasysPk: Int?,
   val version: Int,
   val regionCode: String?,
+  val deleted: Boolean,
   val goals: List<GoalResponse>,
   val agreements: List<PlanAgreementResponse>,
   val createdAt: Instant,
@@ -33,6 +34,7 @@ data class SentencePlanResponse(
       oasysPk = entity.oasysPk,
       version = entity.version,
       regionCode = entity.regionCode,
+      deleted = entity.deleted,
       goals = entity.goals.map { GoalResponse.from(it) },
       agreements = entity.agreements.map { PlanAgreementResponse.from(it) },
       createdAt = entity.createdAt,
@@ -48,7 +50,8 @@ data class IdentifierResponse(
 
 data class GoalResponse(
   val id: UUID,
-  val title: String,
+  val titleLength: Int,
+  val titleHash: String,
   val areaOfNeed: CriminogenicNeed,
   val targetDate: LocalDate?,
   val status: GoalStatus,
@@ -56,14 +59,14 @@ data class GoalResponse(
   val relatedAreasOfNeed: List<CriminogenicNeed>,
   val steps: List<StepResponse>,
   val freeTexts: List<FreeTextResponse>,
-  val createdByUserId: String,
   val createdAt: Instant,
   val updatedAt: Instant,
 ) {
   companion object {
     fun from(entity: GoalEntity) = GoalResponse(
       id = entity.id,
-      title = entity.title,
+      titleLength = entity.titleLength,
+      titleHash = entity.titleHash,
       areaOfNeed = entity.areaOfNeed,
       targetDate = entity.targetDate,
       status = entity.status,
@@ -71,7 +74,6 @@ data class GoalResponse(
       relatedAreasOfNeed = entity.relatedAreasOfNeed.map { it.criminogenicNeed },
       steps = entity.steps.map { StepResponse.from(it) },
       freeTexts = entity.freeTexts.map { FreeTextResponse(it.id, it.type, it.textLength, it.createdByUserId, it.createdAt) },
-      createdByUserId = entity.createdByUserId,
       createdAt = entity.createdAt,
       updatedAt = entity.updatedAt,
     )
@@ -84,7 +86,6 @@ data class StepResponse(
   val actor: ActorType,
   val status: StepStatus,
   val statusDate: Instant?,
-  val createdByUserId: String,
   val createdAt: Instant,
 ) {
   companion object {
@@ -94,7 +95,6 @@ data class StepResponse(
       actor = entity.actor,
       status = entity.status,
       statusDate = entity.statusDate,
-      createdByUserId = entity.createdByUserId,
       createdAt = entity.createdAt,
     )
   }
@@ -104,7 +104,7 @@ data class FreeTextResponse(
   val id: UUID,
   val type: FreeTextType,
   val textLength: Int,
-  val createdByUserId: String,
+  val createdByUserId: UUID,
   val createdAt: Instant,
 )
 
@@ -113,7 +113,7 @@ data class PlanAgreementResponse(
   val status: PlanStatus,
   val statusDate: Instant?,
   val freeTexts: List<FreeTextResponse>,
-  val createdByUserId: String,
+  val createdByUserId: UUID,
   val createdAt: Instant,
 ) {
   companion object {

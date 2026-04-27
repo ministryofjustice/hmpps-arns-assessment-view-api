@@ -18,6 +18,5 @@ data class AppProperties(
   data class Sync(
     val enabled: Boolean,
     val intervalMinutes: Long,
-    val sinceHours: Int,
   )
 }

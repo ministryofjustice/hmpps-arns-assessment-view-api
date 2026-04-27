@@ -36,9 +36,6 @@ class StepEntity(
   @Column(name = "status_date")
   val statusDate: Instant? = null,
 
-  @Column(name = "created_by_user_id", nullable = false)
-  val createdByUserId: String,
-
   @Column(name = "created_at", nullable = false)
   val createdAt: Instant,
 )

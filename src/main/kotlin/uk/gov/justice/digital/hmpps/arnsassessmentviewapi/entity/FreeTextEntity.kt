@@ -34,7 +34,7 @@ class FreeTextEntity(
   val planAgreement: PlanAgreementEntity? = null,
 
   @Column(name = "created_by_user_id", nullable = false)
-  val createdByUserId: String,
+  val createdByUserId: UUID,
 
   @Column(name = "created_at", nullable = false)
   val createdAt: Instant,

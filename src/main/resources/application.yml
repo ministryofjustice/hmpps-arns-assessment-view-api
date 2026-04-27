@@ -103,4 +103,3 @@ app:
   sync:
     enabled: ${SYNC_ENABLED:false}
     interval-minutes: ${SYNC_INTERVAL_MINUTES:60}
-    since-hours: ${SYNC_SINCE_HOURS:2}

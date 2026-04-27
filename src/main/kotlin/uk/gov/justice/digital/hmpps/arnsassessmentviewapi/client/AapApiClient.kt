@@ -9,8 +9,13 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessme
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsModifiedSinceResult
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.QueriesRequest
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.QueriesResponse
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.RequestableQuery
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineQuery
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineQueryResult
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UserDetails
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UuidIdentifier
 import java.time.LocalDateTime
+import java.util.UUID
 
 @Component
 class AapApiClient(
@@ -19,27 +24,43 @@ class AapApiClient(
   fun queryModifiedSince(
     assessmentType: String,
     since: LocalDateTime,
-    pageNumber: Int = 0,
-    pageSize: Int = 50,
+    after: UUID? = null,
+    limit: Int = 50,
   ): GetAssessmentsModifiedSinceResult {
-    log.info("Querying AAP for {} modified since {} (page {})", assessmentType, since, pageNumber)
-    val request = QueriesRequest(
-      queries = listOf(
-        GetAssessmentsModifiedSinceQuery(
-          user = SYNC_USER,
-          assessmentType = assessmentType,
-          since = since,
-          pageNumber = pageNumber,
-          pageSize = pageSize,
-        ),
+    log.info("Querying AAP for {} modified since {} (after={})", assessmentType, since, after)
+    return executeQuery(
+      GetAssessmentsModifiedSinceQuery(
+        user = SYNC_USER,
+        assessmentType = assessmentType,
+        since = since,
+        after = after,
+        limit = limit,
       ),
     )
+  }
+
+  fun queryTimeline(
+    assessmentUuid: UUID,
+    includeEventTypes: Set<String>? = null,
+    pageNumber: Int = 0,
+    pageSize: Int = 50,
+  ): TimelineQueryResult = executeQuery(
+    TimelineQuery(
+      user = SYNC_USER,
+      assessmentIdentifier = UuidIdentifier(assessmentUuid),
+      includeEventTypes = includeEventTypes,
+      pageNumber = pageNumber,
+      pageSize = pageSize,
+    ),
+  )
+
+  private inline fun <reified T> executeQuery(query: RequestableQuery): T {
     val response = aapApiWebClient.post()
       .uri("/query")
       .contentType(MediaType.APPLICATION_JSON)
-      .bodyValue(request)
+      .bodyValue(QueriesRequest(queries = listOf(query)))
       .retrieve()
-      .bodyToMono<QueriesResponse>()
+      .bodyToMono<QueriesResponse<T>>()
       .block()
       ?: error("Null response from AAP /query")
     return response.queries.first().result
