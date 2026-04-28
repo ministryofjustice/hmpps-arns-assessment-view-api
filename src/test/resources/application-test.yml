@@ -9,6 +9,10 @@ hmpps-auth:
   url: "http://localhost:8090/auth"
 
 spring:
+  datasource:
+    hikari:
+      # Keep pool size small so multiple cached contexts don't exhaust postgres connections.
+      maximum-pool-size: 5
   jpa:
     show-sql: true
     properties:
