@@ -1,0 +1,19 @@
+{
+  "queries": [
+    {
+      "result": {
+        "timeline": [
+          {
+            "uuid": "00000000-0000-0000-0000-000000000099",
+            "timestamp": "2026-02-15T12:00:00",
+            "user": {"id": "99999999-9999-9999-9999-000000000001", "name": "Test Creator"},
+            "assessment": "00000001-1111-1111-1111-000000000001",
+            "event": "CollectionItemAddedEvent",
+            "data": {"collectionItemUuid": "00000001-dddd-dddd-dddd-000000000099", "collection": "PLAN_AGREEMENTS"}
+          }
+        ],
+        "pageInfo": {"pageNumber": 0, "totalPages": 1}
+      }
+    }
+  ]
+}

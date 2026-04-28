@@ -23,3 +23,7 @@ CREATE TABLE sync_state (
     last_sync_started_at TIMESTAMPTZ
 );
 INSERT INTO sync_state (id, last_sync_started_at) VALUES ('sentence_plan', NULL);
+
+-- Storing as TEXT removes the need for view-api to parse incoming String values
+-- from coordinator-api into Int and lets values be tolerated instead of silently nulling.
+ALTER TABLE sentence_plan ALTER COLUMN oasys_pk TYPE TEXT USING oasys_pk::TEXT;

@@ -2,6 +2,7 @@ package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock
 
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.containing
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import org.junit.jupiter.api.extension.AfterAllCallback
@@ -36,9 +37,23 @@ class AapApiMockServer : WireMockServer(WIREMOCK_PORT) {
     private const val WIREMOCK_PORT = 8092
   }
 
-  fun stubQuery(responseBody: String, status: Int = 200) {
+  fun stubModifiedSinceQuery(responseBody: String, status: Int = 200) {
     stubFor(
       post(urlEqualTo("/query"))
+        .withRequestBody(containing("GetAssessmentsModifiedSinceQuery"))
+        .willReturn(
+          aResponse()
+            .withHeader("Content-Type", "application/json")
+            .withBody(responseBody)
+            .withStatus(status),
+        ),
+    )
+  }
+
+  fun stubTimelineQuery(responseBody: String, status: Int = 200) {
+    stubFor(
+      post(urlEqualTo("/query"))
+        .withRequestBody(containing("TimelineQuery"))
         .willReturn(
           aResponse()
             .withHeader("Content-Type", "application/json")

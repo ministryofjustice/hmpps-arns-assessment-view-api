@@ -20,6 +20,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePlanRepository
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -33,6 +34,9 @@ class SentencePlanControllerTest : IntegrationTestBase() {
   fun setUp() {
     sentencePlanRepository.deleteAll()
   }
+
+  private fun sha256Hex(text: String): String = MessageDigest.getInstance("SHA-256")
+    .digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 
   private fun givenPlanWithIdentifier(type: IdentifierType, value: String): SentencePlanEntity {
     val plan = SentencePlanEntity(
@@ -62,22 +66,28 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     agreementFreeTextId: UUID = UUID.randomUUID(),
     timestamp: Instant = Instant.parse("2025-06-01T12:00:00Z"),
   ): SentencePlanEntity {
-    val plan = SentencePlanEntity(id = planId, createdAt = timestamp, updatedAt = timestamp, lastSyncedAt = timestamp, oasysPk = 1234567, version = 1, regionCode = "LDN")
+    val plan = SentencePlanEntity(id = planId, createdAt = timestamp, updatedAt = timestamp, lastSyncedAt = timestamp, oasysPk = "1234567", version = 1, regionCode = "LDN")
 
     plan.identifiers.add(SentencePlanIdentifierEntity(id = UUID.randomUUID(), sentencePlan = plan, type = IdentifierType.CRN, value = crn))
 
+    val goalTitle = "Find stable accommodation"
+    val noteCreator = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    val agreementCreator = UUID.fromString("00000000-0000-0000-0000-000000000002")
     val goal = GoalEntity(
-      id = goalId, sentencePlan = plan, title = "Find stable accommodation", areaOfNeed = CriminogenicNeed.ACCOMMODATION,
+      id = goalId, sentencePlan = plan,
+      titleLength = goalTitle.length,
+      titleHash = sha256Hex(goalTitle),
+      areaOfNeed = CriminogenicNeed.ACCOMMODATION,
       targetDate = LocalDate.of(2025, 12, 31), status = GoalStatus.ACTIVE, statusDate = timestamp,
-      createdByUserId = "test-user", createdAt = timestamp, updatedAt = timestamp, goalOrder = 0,
+      createdAt = timestamp, updatedAt = timestamp, goalOrder = 0,
     )
     goal.relatedAreasOfNeed.add(GoalRelatedAreaOfNeedEntity(goal = goal, criminogenicNeed = CriminogenicNeed.FINANCES))
-    goal.steps.add(StepEntity(id = stepId, goal = goal, description = "Contact housing provider", actor = ActorType.PROBATION_PRACTITIONER, status = StepStatus.NOT_STARTED, statusDate = timestamp, createdByUserId = "test-user", createdAt = timestamp))
-    goal.freeTexts.add(FreeTextEntity(id = goalFreeTextId, type = FreeTextType.GOAL_NOTE, textLength = 42, goal = goal, createdByUserId = "test-user", createdAt = timestamp))
+    goal.steps.add(StepEntity(id = stepId, goal = goal, description = "Contact housing provider", actor = ActorType.PROBATION_PRACTITIONER, status = StepStatus.NOT_STARTED, statusDate = timestamp, createdAt = timestamp))
+    goal.freeTexts.add(FreeTextEntity(id = goalFreeTextId, type = FreeTextType.GOAL_NOTE, textLength = 42, goal = goal, createdByUserId = noteCreator, createdAt = timestamp))
     plan.goals.add(goal)
 
-    val agreement = PlanAgreementEntity(id = agreementId, sentencePlan = plan, status = PlanStatus.AGREED, statusDate = timestamp, createdByUserId = "test-user", createdAt = timestamp)
-    agreement.freeTexts.add(FreeTextEntity(id = agreementFreeTextId, type = FreeTextType.AGREEMENT_NOTES, textLength = 15, planAgreement = agreement, createdByUserId = "test-user", createdAt = timestamp))
+    val agreement = PlanAgreementEntity(id = agreementId, sentencePlan = plan, status = PlanStatus.AGREED, statusDate = timestamp, createdByUserId = agreementCreator, createdAt = timestamp)
+    agreement.freeTexts.add(FreeTextEntity(id = agreementFreeTextId, type = FreeTextType.AGREEMENT_NOTES, textLength = 15, planAgreement = agreement, createdByUserId = agreementCreator, createdAt = timestamp))
     plan.agreements.add(agreement)
 
     return sentencePlanRepository.save(plan)
@@ -170,6 +180,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
         agreementFreeTextId = agreementFreeTextId,
       )
 
+      val titleHash = sha256Hex("Find stable accommodation")
       webTestClient.get()
         .uri("/sentence-plan/CRN/X123456")
         .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
@@ -182,16 +193,17 @@ class SentencePlanControllerTest : IntegrationTestBase() {
             "createdAt": "2025-06-01T12:00:00Z",
             "updatedAt": "2025-06-01T12:00:00Z",
             "identifiers": [{ "type": "CRN", "value": "X123456" }],
-            "oasysPk": 1234567,
+            "oasysPk": "1234567",
             "version": 1,
             "regionCode": "LDN",
+            "deleted": false,
             "goals": [{
               "id": "$goalId",
-              "title": "Find stable accommodation",
+              "titleLength": 25,
+              "titleHash": "$titleHash",
               "areaOfNeed": "ACCOMMODATION",
               "targetDate": "2025-12-31",
               "status": "ACTIVE",
-              "createdByUserId": "test-user",
               "relatedAreasOfNeed": ["FINANCES"],
               "steps": [{
                 "id": "$stepId",
@@ -202,17 +214,19 @@ class SentencePlanControllerTest : IntegrationTestBase() {
               "freeTexts": [{
                 "id": "$goalFreeTextId",
                 "type": "GOAL_NOTE",
-                "textLength": 42
+                "textLength": 42,
+                "createdByUserId": "00000000-0000-0000-0000-000000000001"
               }]
             }],
             "agreements": [{
               "id": "$agreementId",
               "status": "AGREED",
-              "createdByUserId": "test-user",
+              "createdByUserId": "00000000-0000-0000-0000-000000000002",
               "freeTexts": [{
                 "id": "$agreementFreeTextId",
                 "type": "AGREEMENT_NOTES",
-                "textLength": 15
+                "textLength": 15,
+                "createdByUserId": "00000000-0000-0000-0000-000000000002"
               }]
             }]
           }]

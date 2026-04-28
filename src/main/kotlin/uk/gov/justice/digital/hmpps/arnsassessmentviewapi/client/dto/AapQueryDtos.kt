@@ -99,6 +99,7 @@ data class AssessmentVersionQueryResult(
   val identifiers: Map<IdentifierType, String>,
   val assignedUser: AapUser?,
   val flags: List<String> = emptyList(),
+  val deleted: Boolean = false,
 )
 
 data class PageInfo(val pageNumber: Int, val totalPages: Int)

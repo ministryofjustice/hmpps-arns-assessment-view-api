@@ -18,7 +18,7 @@ import java.util.UUID
 data class SentencePlanResponse(
   val id: UUID,
   val identifiers: List<IdentifierResponse>,
-  val oasysPk: Int?,
+  val oasysPk: String?,
   val version: Int,
   val regionCode: String?,
   val deleted: Boolean,

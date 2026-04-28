@@ -3,6 +3,9 @@ services:
     build:
       target: development
     command: gradle --parallel --build-cache bootRun
+    environment:
+      TZ: 'Europe/London'
+      JAVA_TOOL_OPTIONS: '-Djava.net.preferIPv4Stack=true'
     volumes:
       - ../.git:/app/.git
       - ../.gradle:/home/gradle/.gradle
