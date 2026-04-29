@@ -9,9 +9,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.IdentifierT
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.MultiValue
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.PageInfo
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.SingleValue
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineItem
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineQueryResult
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineUser
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.Value
 import java.time.LocalDateTime
 import java.util.UUID
@@ -147,25 +145,6 @@ fun page(
   items: List<AssessmentVersionQueryResult> = emptyList(),
   nextCursor: UUID? = null,
 ): GetAssessmentsModifiedSinceResult = GetAssessmentsModifiedSinceResult(items, nextCursor)
-
-fun timelinePage(
-  itemToUser: Map<UUID, UUID>,
-  assessmentUuid: UUID = UUID.randomUUID(),
-  totalPages: Int = 1,
-  pageNumber: Int = 0,
-): TimelineQueryResult = TimelineQueryResult(
-  timeline = itemToUser.map { (itemUuid, userUuid) ->
-    TimelineItem(
-      uuid = UUID.randomUUID(),
-      timestamp = DEFAULT_TIME,
-      user = TimelineUser(id = userUuid, name = "User $userUuid"),
-      assessment = assessmentUuid,
-      event = "CollectionItemAddedEvent",
-      data = mapOf("collectionItemUuid" to itemUuid.toString()),
-    )
-  },
-  pageInfo = PageInfo(pageNumber = pageNumber, totalPages = totalPages),
-)
 
 fun emptyTimelinePage(): TimelineQueryResult = TimelineQueryResult(emptyList(), PageInfo(0, 0))
 
