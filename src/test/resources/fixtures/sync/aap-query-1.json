@@ -1,0 +1,112 @@
+{
+  "queries": [
+    {
+      "result": {
+        "assessments": [
+          {
+            "assessmentUuid": "00000001-1111-1111-1111-000000000001",
+            "aggregateUuid": "00000001-2222-2222-2222-000000000002",
+            "assessmentType": "SENTENCE_PLAN",
+            "formVersion": "v1.0",
+            "createdAt": "2026-01-01T10:00:00",
+            "updatedAt": "2026-01-01T10:00:00",
+            "answers": {},
+            "properties": {},
+            "collections": [
+              {
+                "uuid": "00000001-eeee-eeee-eeee-000000000001",
+                "createdAt": "2026-01-01T10:00:00",
+                "updatedAt": "2026-01-01T10:00:00",
+                "name": "GOALS",
+                "items": [
+                  {
+                    "uuid": "00000001-aaaa-aaaa-aaaa-000000000001",
+                    "createdAt": "2026-01-01T10:00:00",
+                    "updatedAt": "2026-01-01T10:00:00",
+                    "answers": {
+                      "title": {"type": "Single", "value": "Find stable accommodation"},
+                      "area_of_need": {"type": "Single", "value": "accommodation"},
+                      "target_date": {"type": "Single", "value": "2026-06-01"}
+                    },
+                    "properties": {
+                      "status": {"type": "Single", "value": "ACTIVE"},
+                      "status_date": {"type": "Single", "value": "2026-01-01T10:00:00"}
+                    },
+                    "collections": [
+                      {
+                        "uuid": "00000001-eeee-eeee-eeee-000000000002",
+                        "createdAt": "2026-01-01T10:00:00",
+                        "updatedAt": "2026-01-01T10:00:00",
+                        "name": "STEPS",
+                        "items": [
+                          {
+                            "uuid": "00000001-bbbb-bbbb-bbbb-000000000001",
+                            "createdAt": "2026-01-01T10:00:00",
+                            "updatedAt": "2026-01-01T10:00:00",
+                            "answers": {
+                              "description": {"type": "Single", "value": "Contact housing provider"},
+                              "actor": {"type": "Single", "value": "probation_practitioner"},
+                              "status": {"type": "Single", "value": "NOT_STARTED"}
+                            },
+                            "properties": {
+                              "status_date": {"type": "Single", "value": "2026-01-01T10:00:00"}
+                            },
+                            "collections": []
+                          }
+                        ]
+                      },
+                      {
+                        "uuid": "00000001-eeee-eeee-eeee-000000000003",
+                        "createdAt": "2026-01-01T10:00:00",
+                        "updatedAt": "2026-01-01T10:00:00",
+                        "name": "NOTES",
+                        "items": [
+                          {
+                            "uuid": "00000001-cccc-cccc-cccc-000000000001",
+                            "createdAt": "2026-01-01T10:00:00",
+                            "updatedAt": "2026-01-01T10:00:00",
+                            "answers": {
+                              "note": {"type": "Single", "value": "Initial progress update"}
+                            },
+                            "properties": {
+                              "created_at": {"type": "Single", "value": "2026-01-01T10:00:00Z"}
+                            },
+                            "collections": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uuid": "00000001-eeee-eeee-eeee-000000000004",
+                "createdAt": "2026-01-01T10:00:00",
+                "updatedAt": "2026-01-01T10:00:00",
+                "name": "PLAN_AGREEMENTS",
+                "items": [
+                  {
+                    "uuid": "00000001-dddd-dddd-dddd-000000000001",
+                    "createdAt": "2026-01-01T10:00:00",
+                    "updatedAt": "2026-01-01T10:00:00",
+                    "answers": {},
+                    "properties": {
+                      "status": {"type": "Single", "value": "DRAFT"},
+                      "status_date": {"type": "Single", "value": "2026-01-01T10:00:00"}
+                    },
+                    "collections": []
+                  }
+                ]
+              }
+            ],
+            "collaborators": [],
+            "identifiers": {"CRN": "X000001"},
+            "assignedUser": null,
+            "flags": []
+          }
+        ],
+        "nextCursor": null
+      }
+    }
+  ]
+}

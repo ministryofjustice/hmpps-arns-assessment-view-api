@@ -9,6 +9,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.CriminogenicNee
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.FreeTextEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.FreeTextType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.GoalEntity
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.GoalNoteType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.GoalRelatedAreaOfNeedEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.GoalStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.IdentifierType
@@ -20,6 +21,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePlanRepository
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -34,21 +36,22 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     sentencePlanRepository.deleteAll()
   }
 
-  private fun givenPlanWithIdentifier(type: IdentifierType, value: String): SentencePlanEntity {
+  private fun sha256Hex(text: String): String = MessageDigest.getInstance("SHA-256")
+    .digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+
+  private fun givenPlanWithIdentifiers(vararg identifiers: Pair<IdentifierType, String>, deleted: Boolean = false): SentencePlanEntity {
     val plan = SentencePlanEntity(
       id = UUID.randomUUID(),
       createdAt = Instant.now(),
       updatedAt = Instant.now(),
       version = 1,
+      deleted = deleted,
     )
-    plan.identifiers.add(
-      SentencePlanIdentifierEntity(
-        id = UUID.randomUUID(),
-        sentencePlan = plan,
-        type = type,
-        value = value,
-      ),
-    )
+    identifiers.forEach { (type, value) ->
+      plan.identifiers.add(
+        SentencePlanIdentifierEntity(id = UUID.randomUUID(), sentencePlan = plan, type = type, value = value),
+      )
+    }
     return sentencePlanRepository.save(plan)
   }
 
@@ -62,22 +65,33 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     agreementFreeTextId: UUID = UUID.randomUUID(),
     timestamp: Instant = Instant.parse("2025-06-01T12:00:00Z"),
   ): SentencePlanEntity {
-    val plan = SentencePlanEntity(id = planId, createdAt = timestamp, updatedAt = timestamp, lastSyncedAt = timestamp, oasysPk = 1234567, version = 1, regionCode = "LDN")
+    val plan = SentencePlanEntity(id = planId, createdAt = timestamp, updatedAt = timestamp, lastSyncedAt = timestamp, oasysPk = "1234567", version = 1, regionCode = "LDN")
 
     plan.identifiers.add(SentencePlanIdentifierEntity(id = UUID.randomUUID(), sentencePlan = plan, type = IdentifierType.CRN, value = crn))
+    plan.identifiers.add(SentencePlanIdentifierEntity(id = UUID.randomUUID(), sentencePlan = plan, type = IdentifierType.NOMIS, value = "A7779DY"))
 
+    val goalTitle = "Find stable accommodation"
+    val noteCreator = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    val agreementCreator = UUID.fromString("00000000-0000-0000-0000-000000000002")
+    val goalCreator = UUID.fromString("00000000-0000-0000-0000-000000000003")
+    val goalUpdater = UUID.fromString("00000000-0000-0000-0000-000000000004")
+    val stepCreator = UUID.fromString("00000000-0000-0000-0000-000000000005")
     val goal = GoalEntity(
-      id = goalId, sentencePlan = plan, title = "Find stable accommodation", areaOfNeed = CriminogenicNeed.ACCOMMODATION,
+      id = goalId, sentencePlan = plan,
+      titleLength = goalTitle.length,
+      titleHash = sha256Hex(goalTitle),
+      areaOfNeed = CriminogenicNeed.ACCOMMODATION,
       targetDate = LocalDate.of(2025, 12, 31), status = GoalStatus.ACTIVE, statusDate = timestamp,
-      createdByUserId = "test-user", createdAt = timestamp, updatedAt = timestamp, goalOrder = 0,
+      createdAt = timestamp, updatedAt = timestamp, goalOrder = 0,
+      createdByUserId = goalCreator, updatedByUserId = goalUpdater,
     )
     goal.relatedAreasOfNeed.add(GoalRelatedAreaOfNeedEntity(goal = goal, criminogenicNeed = CriminogenicNeed.FINANCES))
-    goal.steps.add(StepEntity(id = stepId, goal = goal, description = "Contact housing provider", actor = ActorType.PROBATION_PRACTITIONER, status = StepStatus.NOT_STARTED, statusDate = timestamp, createdByUserId = "test-user", createdAt = timestamp))
-    goal.freeTexts.add(FreeTextEntity(id = goalFreeTextId, type = FreeTextType.GOAL_NOTE, textLength = 42, goal = goal, createdByUserId = "test-user", createdAt = timestamp))
+    goal.steps.add(StepEntity(id = stepId, goal = goal, description = "Contact housing provider", actor = ActorType.PROBATION_PRACTITIONER, status = StepStatus.NOT_STARTED, statusDate = timestamp, createdAt = timestamp, createdByUserId = stepCreator))
+    goal.freeTexts.add(FreeTextEntity(id = goalFreeTextId, type = FreeTextType.GOAL_NOTE, textLength = 42, textHash = sha256Hex("the redacted goal note text content"), goal = goal, createdByUserId = noteCreator, createdAt = timestamp, goalNoteType = GoalNoteType.PROGRESS))
     plan.goals.add(goal)
 
-    val agreement = PlanAgreementEntity(id = agreementId, sentencePlan = plan, status = PlanStatus.AGREED, statusDate = timestamp, createdByUserId = "test-user", createdAt = timestamp)
-    agreement.freeTexts.add(FreeTextEntity(id = agreementFreeTextId, type = FreeTextType.AGREEMENT_NOTES, textLength = 15, planAgreement = agreement, createdByUserId = "test-user", createdAt = timestamp))
+    val agreement = PlanAgreementEntity(id = agreementId, sentencePlan = plan, status = PlanStatus.AGREED, statusDate = timestamp, createdByUserId = agreementCreator, createdAt = timestamp)
+    agreement.freeTexts.add(FreeTextEntity(id = agreementFreeTextId, type = FreeTextType.AGREEMENT_NOTES, textLength = 15, textHash = sha256Hex("agreement notes"), planAgreement = agreement, createdByUserId = agreementCreator, createdAt = timestamp))
     plan.agreements.add(agreement)
 
     return sentencePlanRepository.save(plan)
@@ -88,7 +102,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     @Test
     fun `returns 401 when no auth token provided`() {
       webTestClient.get()
-        .uri("/sentence-plan/CRN/X123456")
+        .uri("/sentence-plan/X123456")
         .exchange()
         .expectStatus().isUnauthorized
     }
@@ -96,19 +110,19 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     @Test
     fun `returns 403 when user lacks required role`() {
       webTestClient.get()
-        .uri("/sentence-plan/CRN/X123456")
+        .uri("/sentence-plan/X123456")
         .headers(setAuthorisation(roles = listOf("ROLE_OTHER")))
         .exchange()
         .expectStatus().isForbidden
     }
 
     @Test
-    fun `returns 200 when user has ROLE_ASSESSMENT_VIEW`() {
-      givenPlanWithIdentifier(IdentifierType.CRN, "X123456")
+    fun `returns 200 when user has ROLE_ASSESSMENT_VIEW_DELIUS`() {
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X123456")
 
       webTestClient.get()
-        .uri("/sentence-plan/CRN/X123456")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .uri("/sentence-plan/X123456")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isOk
     }
@@ -119,32 +133,20 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     @Test
     fun `returns 404 when no plans found`() {
       webTestClient.get()
-        .uri("/sentence-plan/CRN/UNKNOWN")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .uri("/sentence-plan/UNKNOWN")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isNotFound
         .expectBody()
         .jsonPath("$.status").isEqualTo(404)
-        .jsonPath("$.userMessage").isEqualTo("No sentence plans found for CRN/UNKNOWN")
-    }
-
-    @Test
-    fun `returns 400 for invalid identifier type`() {
-      webTestClient.get()
-        .uri("/sentence-plan/INVALID/X123456")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
-        .exchange()
-        .expectStatus().isBadRequest
-        .expectBody()
-        .jsonPath("$.status").isEqualTo(400)
-        .jsonPath("$.userMessage").isEqualTo("Invalid parameter: identifierType")
+        .jsonPath("$.userMessage").isEqualTo("No sentence plans found for the given CRN")
     }
 
     @Test
     fun `returns 404 for unknown path`() {
       webTestClient.get()
         .uri("/sentence-plan")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isNotFound
         .expectBody()
@@ -152,102 +154,102 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `returns sentence plan with all nested data`() {
-      val planId = UUID.randomUUID()
-      val goalId = UUID.randomUUID()
-      val stepId = UUID.randomUUID()
-      val agreementId = UUID.randomUUID()
-      val goalFreeTextId = UUID.randomUUID()
-      val agreementFreeTextId = UUID.randomUUID()
+    fun `returns sentence plan in spec-aligned shape`() {
+      givenFullyPopulatedPlan(crn = "X123456")
 
-      givenFullyPopulatedPlan(
-        crn = "X123456",
-        planId = planId,
-        goalId = goalId,
-        stepId = stepId,
-        agreementId = agreementId,
-        goalFreeTextId = goalFreeTextId,
-        agreementFreeTextId = agreementFreeTextId,
-      )
-
+      val titleHash = sha256Hex("Find stable accommodation")
       webTestClient.get()
-        .uri("/sentence-plan/CRN/X123456")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .uri("/sentence-plan/X123456")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isOk
-        .expectBody().json(
+        .expectBody()
+        .json(
           """
           [{
-            "id": "$planId",
-            "createdAt": "2025-06-01T12:00:00Z",
-            "updatedAt": "2025-06-01T12:00:00Z",
-            "identifiers": [{ "type": "CRN", "value": "X123456" }],
-            "oasysPk": 1234567,
-            "version": 1,
-            "regionCode": "LDN",
+            "crn": "X123456",
+            "nomis": "A7779DY",
+            "planStatus": "AGREED",
             "goals": [{
-              "id": "$goalId",
-              "title": "Find stable accommodation",
+              "titleLength": 25,
+              "titleHash": "$titleHash",
               "areaOfNeed": "ACCOMMODATION",
-              "targetDate": "2025-12-31",
-              "status": "ACTIVE",
-              "createdByUserId": "test-user",
               "relatedAreasOfNeed": ["FINANCES"],
+              "targetDate": "2025-12-31",
+              "goalStatus": "ACTIVE",
               "steps": [{
-                "id": "$stepId",
                 "description": "Contact housing provider",
+                "status": "NOT_STARTED",
                 "actor": "PROBATION_PRACTITIONER",
-                "status": "NOT_STARTED"
-              }],
-              "freeTexts": [{
-                "id": "$goalFreeTextId",
-                "type": "GOAL_NOTE",
-                "textLength": 42
-              }]
-            }],
-            "agreements": [{
-              "id": "$agreementId",
-              "status": "AGREED",
-              "createdByUserId": "test-user",
-              "freeTexts": [{
-                "id": "$agreementFreeTextId",
-                "type": "AGREEMENT_NOTES",
-                "textLength": 15
+                "statusDate": "2025-06-01T12:00:00Z"
               }]
             }]
           }]
           """,
+          true,
         )
+    }
+
+    @Test
+    fun `nomis and planStatus serialise as null when not populated`() {
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X777777")
+
+      webTestClient.get()
+        .uri("/sentence-plan/X777777")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
+        .exchange()
+        .expectStatus().isOk
+        .expectBody()
+        .json(
+          """
+          [{
+            "crn": "X777777",
+            "nomis": null,
+            "planStatus": null,
+            "goals": []
+          }]
+          """,
+          true,
+        )
+    }
+
+    @Test
+    fun `deleted plans are hidden from the endpoint - returns 404 if all matches are deleted`() {
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X555555", deleted = true)
+
+      webTestClient.get()
+        .uri("/sentence-plan/X555555")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
+        .exchange()
+        .expectStatus().isNotFound
+    }
+
+    @Test
+    fun `deleted plans are hidden from the endpoint - live siblings still surface`() {
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X666666", deleted = true)
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X666666")
+
+      webTestClient.get()
+        .uri("/sentence-plan/X666666")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
+        .exchange()
+        .expectStatus().isOk
+        .expectBody()
+        .jsonPath("$.length()").isEqualTo(1)
     }
 
     @Test
     fun `returns multiple plans for same CRN`() {
-      givenPlanWithIdentifier(IdentifierType.CRN, "X999999")
-      givenPlanWithIdentifier(IdentifierType.CRN, "X999999")
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X999999")
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X999999")
 
       webTestClient.get()
-        .uri("/sentence-plan/CRN/X999999")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .uri("/sentence-plan/X999999")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isOk
         .expectBody()
         .jsonPath("$.length()").isEqualTo(2)
-    }
-
-    @Test
-    fun `can look up by NOMIS identifier`() {
-      givenPlanWithIdentifier(IdentifierType.NOMIS, "A1234BC")
-
-      webTestClient.get()
-        .uri("/sentence-plan/NOMIS/A1234BC")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
-        .exchange()
-        .expectStatus().isOk
-        .expectBody().json(
-          """
-          [{ "identifiers": [{ "type": "NOMIS", "value": "A1234BC" }] }]
-          """,
-        )
     }
   }
 }

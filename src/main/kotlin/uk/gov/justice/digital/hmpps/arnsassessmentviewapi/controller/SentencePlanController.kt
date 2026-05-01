@@ -11,30 +11,24 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.controller.response.SentencePlanResponse
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.IdentifierType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service.SentencePlanService
 import uk.gov.justice.hmpps.kotlin.common.ErrorResponse
 
 @RestController
 @RequestMapping("/sentence-plan")
-@PreAuthorize("hasRole('ROLE_ASSESSMENT_VIEW')")
+@PreAuthorize("hasRole('ROLE_ASSESSMENT_VIEW_DELIUS')")
 class SentencePlanController(
   private val sentencePlanService: SentencePlanService,
 ) {
 
-  @GetMapping("/{identifierType}/{identifierValue}")
-  @Operation(description = "Returns all sentence plans matching the given identifier")
+  @GetMapping("/{crn}")
+  @Operation(description = "Returns all sentence plans matching the given CRN")
   @ApiResponses(
     value = [
       ApiResponse(responseCode = "200", description = "Sentence plans found"),
       ApiResponse(
         responseCode = "404",
-        description = "No sentence plans found for the given identifier",
-        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
-      ),
-      ApiResponse(
-        responseCode = "400",
-        description = "Invalid identifier type",
+        description = "No sentence plans found for the given CRN",
         content = [Content(schema = Schema(implementation = ErrorResponse::class))],
       ),
       ApiResponse(
@@ -44,7 +38,7 @@ class SentencePlanController(
       ),
       ApiResponse(
         responseCode = "403",
-        description = "Forbidden - requires ROLE_ASSESSMENT_VIEW",
+        description = "Forbidden",
         content = [Content(schema = Schema(implementation = ErrorResponse::class))],
       ),
       ApiResponse(
@@ -54,8 +48,5 @@ class SentencePlanController(
       ),
     ],
   )
-  fun getSentencePlans(
-    @PathVariable identifierType: IdentifierType,
-    @PathVariable identifierValue: String,
-  ): List<SentencePlanResponse> = sentencePlanService.getSentencePlans(identifierType, identifierValue)
+  fun getSentencePlans(@PathVariable crn: String): List<SentencePlanResponse> = sentencePlanService.getSentencePlans(crn)
 }

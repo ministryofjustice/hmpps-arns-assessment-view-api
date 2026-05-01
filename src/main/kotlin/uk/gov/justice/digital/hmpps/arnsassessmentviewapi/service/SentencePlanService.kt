@@ -10,14 +10,14 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePla
 class SentencePlanService(
   private val sentencePlanRepository: SentencePlanRepository,
 ) {
-  fun getSentencePlans(identifierType: IdentifierType, identifierValue: String): List<SentencePlanResponse> {
-    log.info("Fetching sentence plans for {}/{}", identifierType, identifierValue)
-    val plans = sentencePlanRepository.findByIdentifier(identifierType, identifierValue)
+  fun getSentencePlans(crn: String): List<SentencePlanResponse> {
+    log.info("Fetching sentence plans by CRN")
+    val plans = sentencePlanRepository.findByIdentifier(IdentifierType.CRN, crn)
     if (plans.isEmpty()) {
-      log.info("No sentence plans found for {}/{}", identifierType, identifierValue)
-      throw SentencePlanNotFoundException(identifierType, identifierValue)
+      log.info("No sentence plans found")
+      throw SentencePlanNotFoundException()
     }
-    log.info("Found {} sentence plan(s) for {}/{}", plans.size, identifierType, identifierValue)
+    log.info("Found {} sentence plan(s)", plans.size)
     return plans.map { SentencePlanResponse.from(it) }
   }
 
@@ -26,7 +26,4 @@ class SentencePlanService(
   }
 }
 
-class SentencePlanNotFoundException(
-  identifierType: IdentifierType,
-  identifierValue: String,
-) : RuntimeException("No sentence plans found for $identifierType/$identifierValue")
+class SentencePlanNotFoundException : RuntimeException("No sentence plans found for the given CRN")

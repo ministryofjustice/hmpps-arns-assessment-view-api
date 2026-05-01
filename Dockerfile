@@ -2,6 +2,7 @@ ARG BASE_IMAGE=ghcr.io/ministryofjustice/hmpps-eclipse-temurin:25-jre-jammy
 
 FROM gradle:9-jdk25-alpine AS development
 RUN apk add --no-cache curl
+ENV TZ=Europe/London
 WORKDIR /app
 
 FROM --platform=$BUILDPLATFORM ${BASE_IMAGE} AS builder
@@ -17,6 +18,7 @@ FROM ${BASE_IMAGE}
 
 ARG BUILD_NUMBER
 ENV BUILD_NUMBER=${BUILD_NUMBER:-1_0_0}
+ENV TZ=Europe/London
 
 WORKDIR /app
 COPY --chown=appuser:appgroup applicationinsights.json ./

@@ -22,9 +22,33 @@ data class GetAssessmentsModifiedSinceQuery(
   override val user: UserDetails,
   val assessmentType: String,
   val since: LocalDateTime,
+  val after: UUID? = null,
+  val limit: Int = 50,
+) : RequestableQuery
+
+@JsonTypeName("GetAssessmentsSoftDeletedSinceQuery")
+data class GetAssessmentsSoftDeletedSinceQuery(
+  override val user: UserDetails,
+  val assessmentType: String,
+  val since: LocalDateTime,
+) : RequestableQuery
+
+@JsonTypeName("TimelineQuery")
+data class TimelineQuery(
+  override val user: UserDetails,
+  val assessmentIdentifier: AssessmentIdentifier,
+  val includeEventTypes: Set<String>? = null,
+  val includeCustomTypes: Set<String>? = null,
   val pageNumber: Int = 0,
   val pageSize: Int = 50,
 ) : RequestableQuery
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(JsonSubTypes.Type(value = UuidIdentifier::class, name = "UUID"))
+sealed interface AssessmentIdentifier
+
+@JsonTypeName("UUID")
+data class UuidIdentifier(val uuid: UUID) : AssessmentIdentifier
 
 data class QueriesRequest(val queries: List<RequestableQuery>)
 
@@ -90,12 +114,41 @@ data class PageInfo(val pageNumber: Int, val totalPages: Int)
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class GetAssessmentsModifiedSinceResult(
   val assessments: List<AssessmentVersionQueryResult>,
-  val pageInfo: PageInfo,
+  val nextCursor: UUID? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class QueryResponse(
-  val result: GetAssessmentsModifiedSinceResult,
+data class GetAssessmentsSoftDeletedSinceResult(
+  val assessments: List<UUID>,
 )
 
-data class QueriesResponse(val queries: List<QueryResponse>)
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class QueryResponse<T>(
+  val result: T,
+)
+
+data class QueriesResponse<T>(val queries: List<QueryResponse<T>>)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class TimelineItem(
+  val uuid: UUID,
+  val timestamp: LocalDateTime,
+  val user: TimelineUser,
+  val assessment: UUID,
+  val event: String?,
+  val data: Map<String, Any> = emptyMap(),
+  val customType: String? = null,
+  val customData: Map<String, Any>? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class TimelineUser(
+  val id: UUID,
+  val name: String,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class TimelineQueryResult(
+  val timeline: List<TimelineItem>,
+  val pageInfo: PageInfo,
+)

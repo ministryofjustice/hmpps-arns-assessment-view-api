@@ -18,22 +18,25 @@ class SentencePlanEntity(
   val id: UUID,
 
   @Column(name = "created_at", nullable = false)
-  val createdAt: Instant,
+  var createdAt: Instant,
 
   @Column(name = "updated_at", nullable = false)
-  val updatedAt: Instant,
+  var updatedAt: Instant,
 
   @Column(name = "last_synced_at", nullable = false)
-  val lastSyncedAt: Instant = Instant.now(),
+  var lastSyncedAt: Instant = Instant.now(),
 
   @Column(name = "oasys_pk")
-  val oasysPk: Int? = null,
+  var oasysPk: String? = null,
 
   @Column(nullable = false)
-  val version: Int,
+  var version: Int,
 
   @Column(name = "region_code")
-  val regionCode: String? = null,
+  var regionCode: String? = null,
+
+  @Column(name = "deleted", nullable = false)
+  var deleted: Boolean = false,
 
   @OneToMany(mappedBy = "sentencePlan", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
