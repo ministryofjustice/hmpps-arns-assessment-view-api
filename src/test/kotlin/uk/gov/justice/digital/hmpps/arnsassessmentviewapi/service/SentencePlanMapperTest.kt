@@ -20,6 +20,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.agreementItem
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.agreementsCollection
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.assessment
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.association
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.authorshipFor
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.goalItem
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.goalsCollection
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.noteItem
@@ -37,6 +38,8 @@ class SentencePlanMapperTest {
 
   private val mapper = SentencePlanMapper()
 
+  private fun authorOf(user: UUID) = ItemAuthorship(createdBy = user, updatedBy = user)
+
   @Nested
   inner class ToEntityTopLevel {
 
@@ -48,7 +51,7 @@ class SentencePlanMapperTest {
       val assoc = association(oasysPk = "12345", regionCode = "LDN", baseVersion = 3)
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, assoc, existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, assoc, existing = null, authorship = authorshipFor(source))
 
       // THEN top level fields come from source + association
       assertThat(plan.id).isEqualTo(uuid)
@@ -65,7 +68,7 @@ class SentencePlanMapperTest {
       val assoc = association(regionCode = null)
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, assoc, existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, assoc, existing = null, authorship = authorshipFor(source))
 
       // THEN regionCode is null on the entity
       assertThat(plan.regionCode).isNull()
@@ -78,7 +81,7 @@ class SentencePlanMapperTest {
 
       // WHEN mapped between two captured instants
       val before = Instant.now()
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
       val after = Instant.now()
 
       // THEN lastSyncedAt falls inside that window
@@ -91,7 +94,7 @@ class SentencePlanMapperTest {
       val source = assessment(deleted = true)
 
       // WHEN mapped without an existing entity
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the new entity carries the tombstone flag
       assertThat(plan.deleted).isTrue
@@ -117,7 +120,7 @@ class SentencePlanMapperTest {
 
       // WHEN re-mapped
       val before = Instant.now()
-      val plan = mapper.toEntity(source, association(), existing = existing, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = existing, authorship = authorshipFor(source))
       val after = Instant.now()
 
       // THEN the same instance is returned, lastSyncedAt is refreshed, and stale children are gone
@@ -149,7 +152,7 @@ class SentencePlanMapperTest {
       val source = assessment(uuid = uuid, createdAt = newCreated, updatedAt = newUpdated)
       val newAssoc = association(oasysPk = "NEW-PK", regionCode = "NEW", baseVersion = 7)
 
-      mapper.toEntity(source, newAssoc, existing = existing, creators = emptyMap())
+      mapper.toEntity(source, newAssoc, existing = existing, authorship = authorshipFor(source))
 
       // THEN every field on the existing entity reflects the new values.
       assertThat(existing.createdAt).isEqualTo(newCreated.atZone(java.time.ZoneId.systemDefault()).toInstant())
@@ -167,7 +170,7 @@ class SentencePlanMapperTest {
       val source = assessment(uuid = uuid, deleted = true)
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = existing, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = existing, authorship = authorshipFor(source))
 
       // THEN AAP's deleted=true surfaces
       assertThat(plan.deleted).isTrue
@@ -181,7 +184,7 @@ class SentencePlanMapperTest {
       val source = assessment(uuid = uuid, deleted = false)
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = existing, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = existing, authorship = authorshipFor(source))
 
       // THEN deleted is restored to false, view-api defers to AAP authoritatively
       assertThat(plan.deleted).isFalse
@@ -195,7 +198,7 @@ class SentencePlanMapperTest {
         val source = assessment(createdAt = bstLocal, updatedAt = bstLocal)
 
         // WHEN mapped
-        val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+        val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
         // THEN the wall-clock time is interpreted as London-zone, producing the corresponding UTC instant
         assertThat(plan.createdAt).isEqualTo(Instant.parse("2026-06-15T09:00:00Z"))
@@ -219,7 +222,7 @@ class SentencePlanMapperTest {
       val source = assessment(identifiers = mapOf(aapType to "value-1"))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN it surfaces with the matching entity type and the same value
       assertThat(plan.identifiers.map { it.type to it.value }).containsExactly(expected to "value-1")
@@ -237,7 +240,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN PRN is dropped while CRN and NOMIS persist
       assertThat(plan.identifiers.map { it.type to it.value })
@@ -253,7 +256,7 @@ class SentencePlanMapperTest {
       val source = assessment(identifiers = emptyMap())
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN no identifier rows are produced
       assertThat(plan.identifiers).isEmpty()
@@ -269,7 +272,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = emptyList())
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN no agreements are produced
       assertThat(plan.agreements).isEmpty()
@@ -281,7 +284,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(agreementsCollection(emptyList())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN no agreements are produced
       assertThat(plan.agreements).isEmpty()
@@ -302,10 +305,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid, statusKey = statusKey)))),
       )
-      val creators = mapOf(agreementUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(agreementUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN the status enum matches the lookup
       assertThat(plan.agreements.single().status).isEqualTo(PlanStatus.valueOf(expectedName))
@@ -319,7 +322,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the agreement is skipped, not surfaced as an entity
       assertThat(plan.agreements).isEmpty()
@@ -333,7 +336,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the agreement is skipped rather than failing the whole mapping
       assertThat(plan.agreements).isEmpty()
@@ -346,10 +349,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid, statusDate = null)))),
       )
-      val creators = mapOf(agreementUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(agreementUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN statusDate falls back to null
       assertThat(plan.agreements.single().statusDate).isNull()
@@ -382,10 +385,10 @@ class SentencePlanMapperTest {
           ),
         ),
       )
-      val creators = mapOf(agreementUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(agreementUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN one free-text is produced with the expected type and hash+length redaction
       val ft = plan.agreements.single().freeTexts.single()
@@ -403,10 +406,10 @@ class SentencePlanMapperTest {
           agreementsCollection(listOf(agreementItem(uuid = agreementUuid, statusKey = "DO_NOT_AGREE", detailsNo = "reason", notes = "context"))),
         ),
       )
-      val creators = mapOf(agreementUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(agreementUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN AGREEMENT_DETAILS appears before AGREEMENT_NOTES (mapper iterates the constant in declared order)
       assertThat(plan.agreements.single().freeTexts.map { it.type })
@@ -421,10 +424,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid, statusKey = "DO_NOT_AGREE", detailsNo = "reason", notes = "context")))),
       )
-      val creators = mapOf(agreementUuid to agreementCreator)
+      val authorship = authorshipFor(source, overrides = mapOf(agreementUuid to authorOf(agreementCreator)))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN both the agreement and its free texts attribute to the same agreement creator
       val agreement = plan.agreements.single()
@@ -433,14 +436,14 @@ class SentencePlanMapperTest {
     }
 
     @Test
-    fun `throws when creators map has no entry for an otherwise-valid agreement`() {
+    fun `throws when authorship map has no entry for an otherwise-valid agreement`() {
       // GIVEN an agreement that should map but no timeline creator
       val source = assessment(collections = listOf(agreementsCollection(listOf(agreementItem()))))
 
       // WHEN mapped without a creator
       // THEN the mapper escalates rather than silently emitting an unauthored agreement
       assertThrows<IllegalStateException> {
-        mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+        mapper.toEntity(source, association(), existing = null, authorship = emptyMap())
       }
     }
   }
@@ -454,7 +457,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = emptyList())
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN no goals are produced
       assertThat(plan.goals).isEmpty()
@@ -466,7 +469,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(title = null)))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the goal is skipped
       assertThat(plan.goals).isEmpty()
@@ -478,7 +481,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(areaSlug = null)))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the goal is skipped
       assertThat(plan.goals).isEmpty()
@@ -490,7 +493,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(areaSlug = "not-a-real-area")))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the goal is skipped rather than mapped to a placeholder
       assertThat(plan.goals).isEmpty()
@@ -502,7 +505,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(statusKey = null)))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the goal is skipped
       assertThat(plan.goals).isEmpty()
@@ -514,7 +517,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(statusKey = "MAYBE_ACTIVE")))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the goal is skipped
       assertThat(plan.goals).isEmpty()
@@ -537,7 +540,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN only the valid goal is kept and goalOrder reflects its index in the source list
       assertThat(plan.goals).hasSize(1)
@@ -561,7 +564,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(areaSlug = slug)))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the entity carries the matching enum
       assertThat(plan.goals.single().areaOfNeed).isEqualTo(CriminogenicNeed.valueOf(expectedName))
@@ -579,7 +582,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(statusKey = statusKey)))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the status enum matches
       assertThat(plan.goals.single().status).isEqualTo(GoalStatus.valueOf(expectedName))
@@ -591,7 +594,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(targetDate = "2026-12-31")))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN targetDate parses to the expected LocalDate
       assertThat(plan.goals.single().targetDate).isEqualTo(LocalDate.of(2026, 12, 31))
@@ -603,7 +606,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(targetDate = null)))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN targetDate is null
       assertThat(plan.goals.single().targetDate).isNull()
@@ -615,7 +618,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(targetDate = "not-a-date")))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN targetDate falls back to null rather than throwing
       assertThat(plan.goals.single().targetDate).isNull()
@@ -631,7 +634,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN each goal carries its index as goalOrder
       assertThat(plan.goals.map { it.id to it.goalOrder })
@@ -646,7 +649,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN both related areas are persisted
       assertThat(plan.goals.single().relatedAreasOfNeed.map { it.criminogenicNeed })
@@ -661,7 +664,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the one slug is persisted
       assertThat(plan.goals.single().relatedAreasOfNeed.map { it.criminogenicNeed })
@@ -676,7 +679,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN only the valid one persists
       assertThat(plan.goals.single().relatedAreasOfNeed.map { it.criminogenicNeed })
@@ -690,7 +693,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(title = rawTitle)))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the entity carries hash + length, the redaction contract holds
       val goal = plan.goals.single()
@@ -708,7 +711,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = emptyList())))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the goal has no steps
       assertThat(plan.goals.single().steps).isEmpty()
@@ -720,7 +723,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(description = null)))))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the step is skipped
       assertThat(plan.goals.single().steps).isEmpty()
@@ -732,7 +735,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(actorKey = null)))))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the step is skipped
       assertThat(plan.goals.single().steps).isEmpty()
@@ -744,7 +747,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(actorKey = "wizard")))))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the step is skipped
       assertThat(plan.goals.single().steps).isEmpty()
@@ -756,7 +759,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(statusKey = null)))))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the step is skipped
       assertThat(plan.goals.single().steps).isEmpty()
@@ -768,7 +771,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(statusKey = "PAUSED")))))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the step is skipped
       assertThat(plan.goals.single().steps).isEmpty()
@@ -789,7 +792,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(actorKey = actorKey)))))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the step carries the matching enum
       assertThat(plan.goals.single().steps.single().actor).isEqualTo(ActorType.valueOf(expectedName))
@@ -808,7 +811,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(statusKey = statusKey)))))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the step carries the matching enum
       assertThat(plan.goals.single().steps.single().status).isEqualTo(StepStatus.valueOf(expectedName))
@@ -822,7 +825,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN statusDate parses to the expected instant
       assertThat(plan.goals.single().steps.single().statusDate).isEqualTo(Instant.parse("2026-03-15T12:00:00Z"))
@@ -840,7 +843,7 @@ class SentencePlanMapperTest {
       )
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the note is skipped
       assertThat(plan.goals.single().freeTexts).isEmpty()
@@ -853,8 +856,8 @@ class SentencePlanMapperTest {
         collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem(createdAtIso = null)))))),
       )
 
-      // WHEN mapped, creators map intentionally empty since we expect skip before creator lookup
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      // WHEN mapped, authorship map intentionally empty since we expect skip before lookup
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the note is skipped
       assertThat(plan.goals.single().freeTexts).isEmpty()
@@ -867,10 +870,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem(uuid = noteUuid, typeKey = null)))))),
       )
-      val creators = mapOf(noteUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(noteUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN goalNoteType is PROGRESS (the legacy/aap-ui default)
       assertThat(plan.goals.single().freeTexts.single().goalNoteType).isEqualTo(GoalNoteType.PROGRESS)
@@ -889,10 +892,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem(uuid = noteUuid, typeKey = typeKey)))))),
       )
-      val creators = mapOf(noteUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(noteUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN goalNoteType matches the lookup
       assertThat(plan.goals.single().freeTexts.single().goalNoteType)
@@ -906,10 +909,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem(uuid = noteUuid, typeKey = "INVALID_TYPE")))))),
       )
-      val creators = mapOf(noteUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(noteUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN the note is skipped, not coerced to a default
       assertThat(plan.goals.single().freeTexts).isEmpty()
@@ -923,10 +926,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem(uuid = noteUuid, text = text)))))),
       )
-      val creators = mapOf(noteUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(noteUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN the redaction contract holds
       val ft = plan.goals.single().freeTexts.single()
@@ -935,16 +938,17 @@ class SentencePlanMapperTest {
     }
 
     @Test
-    fun `throws when creators map has no entry for an otherwise-valid note`() {
+    fun `throws when authorship map has no entry for an otherwise-valid note`() {
       // GIVEN an otherwise-valid note but no timeline creator for it
-      val source = assessment(
-        collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem()))))),
-      )
+      val goal = goalItem(notes = listOf(noteItem()))
+      val source = assessment(collections = listOf(goalsCollection(listOf(goal))))
+      // Authorship covers the goal (so the goal mapping succeeds) but not the note inside it.
+      val authorship = mapOf(goal.uuid to authorOf(UUID.randomUUID()))
 
-      // WHEN mapped without a matching creator
+      // WHEN mapped without a matching note creator
       // THEN the mapper escalates rather than fabricate authorship
       assertThrows<IllegalStateException> {
-        mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+        mapper.toEntity(source, association(), existing = null, authorship = authorship)
       }
     }
   }
@@ -963,7 +967,7 @@ class SentencePlanMapperTest {
       val source = assessment(collections = listOf(goalsCollection(listOf(item))))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = emptyMap())
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
 
       // THEN the goal is skipped because asString returned null on the wrong shape
       assertThat(plan.goals).isEmpty()
@@ -977,10 +981,10 @@ class SentencePlanMapperTest {
         val source = assessment(
           collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid, statusDate = "2026-01-15T10:00:00")))),
         )
-        val creators = mapOf(agreementUuid to UUID.randomUUID())
+        val authorship = authorshipFor(source, overrides = mapOf(agreementUuid to authorOf(UUID.randomUUID())))
 
         // WHEN mapped
-        val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+        val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
         // THEN the wall-clock string is interpreted in the JVM zone (GMT in January)
         assertThat(plan.agreements.single().statusDate).isEqualTo(Instant.parse("2026-01-15T10:00:00Z"))
@@ -994,10 +998,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid, statusDate = "not-a-date")))),
       )
-      val creators = mapOf(agreementUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(agreementUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN statusDate is null rather than the mapping crashing
       assertThat(plan.agreements.single().statusDate).isNull()
@@ -1010,10 +1014,10 @@ class SentencePlanMapperTest {
       val source = assessment(
         collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem(uuid = noteUuid, createdAtIso = "2026-04-01T08:30:00Z")))))),
       )
-      val creators = mapOf(noteUuid to UUID.randomUUID())
+      val authorship = authorshipFor(source, overrides = mapOf(noteUuid to authorOf(UUID.randomUUID())))
 
       // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = null, creators = creators)
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
 
       // THEN created_at parses in the ISO branch (no zone fallback needed)
       assertThat(plan.goals.single().freeTexts.single().createdAt).isEqualTo(Instant.parse("2026-04-01T08:30:00Z"))

@@ -2,128 +2,66 @@ package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.controller.response
 
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.ActorType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.CriminogenicNeed
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.FreeTextType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.GoalEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.GoalStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.IdentifierType
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.PlanAgreementEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.PlanStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepStatus
 import java.time.Instant
 import java.time.LocalDate
-import java.util.UUID
 
 data class SentencePlanResponse(
-  val id: UUID,
-  val identifiers: List<IdentifierResponse>,
-  val oasysPk: String?,
-  val version: Int,
-  val regionCode: String?,
-  val deleted: Boolean,
+  val crn: String?,
+  val nomis: String?,
+  val planStatus: PlanStatus?,
   val goals: List<GoalResponse>,
-  val agreements: List<PlanAgreementResponse>,
-  val createdAt: Instant,
-  val updatedAt: Instant,
 ) {
   companion object {
     fun from(entity: SentencePlanEntity) = SentencePlanResponse(
-      id = entity.id,
-      identifiers = entity.identifiers.map { IdentifierResponse(it.type, it.value) },
-      oasysPk = entity.oasysPk,
-      version = entity.version,
-      regionCode = entity.regionCode,
-      deleted = entity.deleted,
-      goals = entity.goals.map { GoalResponse.from(it) },
-      agreements = entity.agreements.map { PlanAgreementResponse.from(it) },
-      createdAt = entity.createdAt,
-      updatedAt = entity.updatedAt,
+      crn = entity.identifiers.firstOrNull { it.type == IdentifierType.CRN }?.value,
+      nomis = entity.identifiers.firstOrNull { it.type == IdentifierType.NOMIS }?.value,
+      planStatus = entity.agreements.maxByOrNull { it.createdAt }?.status,
+      goals = entity.goals.sortedBy { it.goalOrder }.map { GoalResponse.from(it) },
     )
   }
 }
 
-data class IdentifierResponse(
-  val type: IdentifierType,
-  val value: String,
-)
-
 data class GoalResponse(
-  val id: UUID,
   val titleLength: Int,
   val titleHash: String,
   val areaOfNeed: CriminogenicNeed,
-  val targetDate: LocalDate?,
-  val status: GoalStatus,
-  val statusDate: Instant?,
   val relatedAreasOfNeed: List<CriminogenicNeed>,
+  val targetDate: LocalDate?,
+  val goalStatus: GoalStatus,
   val steps: List<StepResponse>,
-  val freeTexts: List<FreeTextResponse>,
-  val createdAt: Instant,
-  val updatedAt: Instant,
 ) {
   companion object {
     fun from(entity: GoalEntity) = GoalResponse(
-      id = entity.id,
       titleLength = entity.titleLength,
       titleHash = entity.titleHash,
       areaOfNeed = entity.areaOfNeed,
-      targetDate = entity.targetDate,
-      status = entity.status,
-      statusDate = entity.statusDate,
       relatedAreasOfNeed = entity.relatedAreasOfNeed.map { it.criminogenicNeed },
+      targetDate = entity.targetDate,
+      goalStatus = entity.status,
       steps = entity.steps.map { StepResponse.from(it) },
-      freeTexts = entity.freeTexts.map { FreeTextResponse(it.id, it.type, it.textLength, it.createdByUserId, it.createdAt) },
-      createdAt = entity.createdAt,
-      updatedAt = entity.updatedAt,
     )
   }
 }
 
 data class StepResponse(
-  val id: UUID,
   val description: String,
-  val actor: ActorType,
   val status: StepStatus,
+  val actor: ActorType,
   val statusDate: Instant?,
-  val createdAt: Instant,
 ) {
   companion object {
     fun from(entity: StepEntity) = StepResponse(
-      id = entity.id,
       description = entity.description,
+      status = entity.status,
       actor = entity.actor,
-      status = entity.status,
       statusDate = entity.statusDate,
-      createdAt = entity.createdAt,
-    )
-  }
-}
-
-data class FreeTextResponse(
-  val id: UUID,
-  val type: FreeTextType,
-  val textLength: Int,
-  val createdByUserId: UUID,
-  val createdAt: Instant,
-)
-
-data class PlanAgreementResponse(
-  val id: UUID,
-  val status: PlanStatus,
-  val statusDate: Instant?,
-  val freeTexts: List<FreeTextResponse>,
-  val createdByUserId: UUID,
-  val createdAt: Instant,
-) {
-  companion object {
-    fun from(entity: PlanAgreementEntity) = PlanAgreementResponse(
-      id = entity.id,
-      status = entity.status,
-      statusDate = entity.statusDate,
-      freeTexts = entity.freeTexts.map { FreeTextResponse(it.id, it.type, it.textLength, it.createdByUserId, it.createdAt) },
-      createdByUserId = entity.createdByUserId,
-      createdAt = entity.createdAt,
     )
   }
 }

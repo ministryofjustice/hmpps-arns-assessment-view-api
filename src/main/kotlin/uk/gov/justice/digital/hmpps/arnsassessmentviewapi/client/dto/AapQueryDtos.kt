@@ -31,6 +31,7 @@ data class TimelineQuery(
   override val user: UserDetails,
   val assessmentIdentifier: AssessmentIdentifier,
   val includeEventTypes: Set<String>? = null,
+  val includeCustomTypes: Set<String>? = null,
   val pageNumber: Int = 0,
   val pageSize: Int = 50,
 ) : RequestableQuery

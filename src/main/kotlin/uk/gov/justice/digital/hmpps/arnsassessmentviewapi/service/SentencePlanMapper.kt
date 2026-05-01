@@ -39,7 +39,7 @@ class SentencePlanMapper {
     source: AssessmentVersionQueryResult,
     association: EntityAssociationDetails,
     existing: SentencePlanEntity?,
-    creators: Map<UUID, UUID>,
+    authorship: Map<UUID, ItemAuthorship>,
   ): SentencePlanEntity {
     val plan = existing ?: SentencePlanEntity(
       id = source.assessmentUuid,
@@ -68,8 +68,8 @@ class SentencePlanMapper {
     }
 
     plan.identifiers.addAll(mapIdentifiers(source, plan))
-    plan.agreements.addAll(mapAgreements(source.collections, plan, creators))
-    plan.goals.addAll(mapGoals(source.collections, plan, creators))
+    plan.agreements.addAll(mapAgreements(source.collections, plan, authorship))
+    plan.goals.addAll(mapGoals(source.collections, plan, authorship))
 
     return plan
   }
@@ -88,12 +88,12 @@ class SentencePlanMapper {
     )
   }
 
-  private fun mapAgreements(collections: List<Collection>, plan: SentencePlanEntity, creators: Map<UUID, UUID>): List<PlanAgreementEntity> {
+  private fun mapAgreements(collections: List<Collection>, plan: SentencePlanEntity, authorship: Map<UUID, ItemAuthorship>): List<PlanAgreementEntity> {
     val collection = collections.firstOrNull { it.name == COLLECTION_PLAN_AGREEMENTS } ?: return emptyList()
-    return collection.items.mapNotNull { item -> mapAgreement(item, plan, creators) }
+    return collection.items.mapNotNull { item -> mapAgreement(item, plan, authorship) }
   }
 
-  private fun mapAgreement(item: CollectionItem, plan: SentencePlanEntity, creators: Map<UUID, UUID>): PlanAgreementEntity? {
+  private fun mapAgreement(item: CollectionItem, plan: SentencePlanEntity, authorship: Map<UUID, ItemAuthorship>): PlanAgreementEntity? {
     val statusKey = item.properties.asString("status") ?: run {
       log.warn("Agreement {} missing 'status' property; skipping", item.uuid)
       return null
@@ -103,7 +103,7 @@ class SentencePlanMapper {
       return null
     }
     val createdAt = item.createdAt.toInstant()
-    val createdBy = creators[item.uuid] ?: error("No timeline creator found for agreement ${item.uuid}")
+    val createdBy = authorship[item.uuid]?.createdBy ?: error("No timeline authorship found for agreement ${item.uuid}")
     val agreement = PlanAgreementEntity(
       id = item.uuid,
       sentencePlan = plan,
@@ -131,12 +131,12 @@ class SentencePlanMapper {
     return agreement
   }
 
-  private fun mapGoals(collections: List<Collection>, plan: SentencePlanEntity, creators: Map<UUID, UUID>): List<GoalEntity> {
+  private fun mapGoals(collections: List<Collection>, plan: SentencePlanEntity, authorship: Map<UUID, ItemAuthorship>): List<GoalEntity> {
     val collection = collections.firstOrNull { it.name == COLLECTION_GOALS } ?: return emptyList()
-    return collection.items.mapIndexedNotNull { index, item -> mapGoal(item, index, plan, creators) }
+    return collection.items.mapIndexedNotNull { index, item -> mapGoal(item, index, plan, authorship) }
   }
 
-  private fun mapGoal(item: CollectionItem, order: Int, plan: SentencePlanEntity, creators: Map<UUID, UUID>): GoalEntity? {
+  private fun mapGoal(item: CollectionItem, order: Int, plan: SentencePlanEntity, authorship: Map<UUID, ItemAuthorship>): GoalEntity? {
     val title = item.answers.asString("title") ?: run {
       log.warn("Goal {} missing 'title'; skipping", item.uuid)
       return null
@@ -158,6 +158,7 @@ class SentencePlanMapper {
       return null
     }
 
+    val goalAuthorship = authorship[item.uuid] ?: error("No timeline authorship found for goal ${item.uuid}")
     val goal = GoalEntity(
       id = item.uuid,
       sentencePlan = plan,
@@ -170,6 +171,8 @@ class SentencePlanMapper {
       createdAt = item.createdAt.toInstant(),
       updatedAt = item.updatedAt.toInstant(),
       goalOrder = order,
+      createdByUserId = goalAuthorship.createdBy,
+      updatedByUserId = goalAuthorship.updatedBy,
     )
 
     item.answers.asStringList("related_areas_of_need").forEach { slug ->
@@ -184,16 +187,16 @@ class SentencePlanMapper {
 
     item.collections.firstOrNull { it.name == COLLECTION_STEPS }
       ?.items
-      ?.mapNotNullTo(goal.steps) { step -> mapStep(step, goal) }
+      ?.mapNotNullTo(goal.steps) { step -> mapStep(step, goal, authorship) }
 
     item.collections.firstOrNull { it.name == COLLECTION_NOTES }
       ?.items
-      ?.mapNotNullTo(goal.freeTexts) { note -> mapGoalNote(note, goal, creators) }
+      ?.mapNotNullTo(goal.freeTexts) { note -> mapGoalNote(note, goal, authorship) }
 
     return goal
   }
 
-  private fun mapStep(item: CollectionItem, goal: GoalEntity): StepEntity? {
+  private fun mapStep(item: CollectionItem, goal: GoalEntity, authorship: Map<UUID, ItemAuthorship>): StepEntity? {
     val description = item.answers.asString("description") ?: run {
       log.warn("Step {} missing 'description'; skipping", item.uuid)
       return null
@@ -214,6 +217,7 @@ class SentencePlanMapper {
       log.warn("Step {} has unknown status '{}'; skipping", item.uuid, statusKey)
       return null
     }
+    val createdBy = authorship[item.uuid]?.createdBy ?: error("No timeline authorship found for step ${item.uuid}")
     return StepEntity(
       id = item.uuid,
       goal = goal,
@@ -222,10 +226,11 @@ class SentencePlanMapper {
       status = status,
       statusDate = item.properties.asString("status_date")?.toInstantOrNull(),
       createdAt = item.createdAt.toInstant(),
+      createdByUserId = createdBy,
     )
   }
 
-  private fun mapGoalNote(item: CollectionItem, goal: GoalEntity, creators: Map<UUID, UUID>): FreeTextEntity? {
+  private fun mapGoalNote(item: CollectionItem, goal: GoalEntity, authorship: Map<UUID, ItemAuthorship>): FreeTextEntity? {
     val text = item.answers.asString("note") ?: run {
       log.warn("Goal note {} missing 'note'; skipping", item.uuid)
       return null
@@ -244,7 +249,7 @@ class SentencePlanMapper {
         return null
       }
     }
-    val createdBy = creators[item.uuid] ?: error("No timeline creator found for goal note ${item.uuid}")
+    val createdBy = authorship[item.uuid]?.createdBy ?: error("No timeline authorship found for goal note ${item.uuid}")
     return FreeTextEntity(
       id = item.uuid,
       type = FreeTextType.GOAL_NOTE,

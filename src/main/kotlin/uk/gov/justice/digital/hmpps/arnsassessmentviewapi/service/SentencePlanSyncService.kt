@@ -148,8 +148,8 @@ class SentencePlanSyncService(
   // we don't want a Hikari connection held open for it.
   private fun upsert(assessment: AssessmentVersionQueryResult, association: EntityAssociationDetails): UpsertOutcome {
     // Timeline fetch runs outside the DB transaction, we don't want the connection held open for it.
-    val creators = if (needsTimelineCreators(assessment)) {
-      fetchTimelineCreators(assessment.assessmentUuid)
+    val authorship = if (needsTimelineAuthorship(assessment)) {
+      fetchTimelineAuthorship(assessment.assessmentUuid)
     } else {
       emptyMap()
     }
@@ -165,27 +165,31 @@ class SentencePlanSyncService(
         // Flushing after clear() keeps the table's unique constraint from being violated when re-adding the same (type, value) pair.
         sentencePlanRepository.saveAndFlush(existing)
       }
-      val entity = mapper.toEntity(assessment, association, existing, creators)
+      val entity = mapper.toEntity(assessment, association, existing, authorship)
       sentencePlanRepository.save(entity)
       if (existing == null) UpsertOutcome.INSERTED else UpsertOutcome.UPDATED
     }
     return outcome ?: error("Upsert transaction returned null for ${assessment.assessmentUuid}")
   }
 
-  private fun needsTimelineCreators(assessment: AssessmentVersionQueryResult): Boolean {
-    val hasAgreements = assessment.collections.any { it.name == COLLECTION_PLAN_AGREEMENTS && it.items.isNotEmpty() }
-    if (hasAgreements) return true
-    return assessment.collections
-      .firstOrNull { it.name == COLLECTION_GOALS }
-      ?.items
-      ?.any { goal -> goal.collections.any { it.name == COLLECTION_NOTES && it.items.isNotEmpty() } }
-      ?: false
+  // Goals (and their child steps) need authorship attribution alongside agreements and notes,
+  // so any non-empty agreements/goals collection triggers the timeline fetch. Empty plans skip it.
+  private fun needsTimelineAuthorship(assessment: AssessmentVersionQueryResult): Boolean = assessment.collections.any { collection ->
+    (collection.name == COLLECTION_PLAN_AGREEMENTS || collection.name == COLLECTION_GOALS) && collection.items.isNotEmpty()
   }
 
-  // Authorship of items in an aggregate isn't included in standard AssessmentVersionQuery.
-  // So need to query the timeline to get this ifnromation.
-  private fun fetchTimelineCreators(assessmentUuid: UUID): Map<UUID, UUID> {
-    val creators = mutableMapOf<UUID, UUID>()
+  // Two timeline queries: standard ADD events for createdBy on every item, custom GOAL_* rows for
+  // goal updatedBy. Only goals carry updatedBy aap-ui doesn't track per-step update authorship.
+  private fun fetchTimelineAuthorship(assessmentUuid: UUID): Map<UUID, ItemAuthorship> {
+    val createdBy = harvestCreatedBy(assessmentUuid)
+    val goalUpdatedBy = harvestGoalUpdatedBy(assessmentUuid)
+    return createdBy.mapValues { (itemUuid, creator) ->
+      ItemAuthorship(createdBy = creator, updatedBy = goalUpdatedBy[itemUuid])
+    }
+  }
+
+  private fun harvestCreatedBy(assessmentUuid: UUID): Map<UUID, UUID> {
+    val createdBy = mutableMapOf<UUID, UUID>()
     var pageNumber = 0
     while (true) {
       val page = aapApiClient.queryTimeline(
@@ -196,12 +200,38 @@ class SentencePlanSyncService(
       )
       page.timeline.forEach { item ->
         val itemUuid = (item.data[TIMELINE_DATA_ITEM_UUID] as? String)?.let(UUID::fromString) ?: return@forEach
-        creators[itemUuid] = item.user.id
+        createdBy[itemUuid] = item.user.id
       }
       if (page.timeline.isEmpty() || pageNumber >= page.pageInfo.totalPages - 1) break
       pageNumber++
     }
-    return creators
+    return createdBy
+  }
+
+  private fun harvestGoalUpdatedBy(assessmentUuid: UUID): Map<UUID, UUID> {
+    data class Latest(val timestamp: LocalDateTime, val user: UUID)
+    val latest = mutableMapOf<UUID, Latest>()
+    var pageNumber = 0
+    while (true) {
+      val page = aapApiClient.queryTimeline(
+        assessmentUuid = assessmentUuid,
+        includeCustomTypes = GOAL_UPDATE_CUSTOM_TYPES,
+        pageNumber = pageNumber,
+        pageSize = PAGE_SIZE,
+      )
+      page.timeline.forEach { item ->
+        val customData = item.customData ?: return@forEach
+        val goalUuid = (customData[CUSTOM_DATA_GOAL_UUID] as? String)?.let(UUID::fromString) ?: return@forEach
+        // Compare by timestamp
+        val current = latest[goalUuid]
+        if (current == null || item.timestamp.isAfter(current.timestamp)) {
+          latest[goalUuid] = Latest(item.timestamp, item.user.id)
+        }
+      }
+      if (page.timeline.isEmpty() || pageNumber >= page.pageInfo.totalPages - 1) break
+      pageNumber++
+    }
+    return latest.mapValues { (_, l) -> l.user }
   }
 
   private fun WebClientResponseException.isLookbackGuardTripped(): Boolean = statusCode.is4xxClientError && responseBodyAsString.contains(LOOKBACK_GUARD_MARKER)
@@ -211,10 +241,11 @@ class SentencePlanSyncService(
     private const val ASSESSMENT_TYPE = "SENTENCE_PLAN"
     private const val PAGE_SIZE = 50
     private const val ADD_EVENT_TYPE = "CollectionItemAddedEvent"
+    private val GOAL_UPDATE_CUSTOM_TYPES = setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")
     private const val TIMELINE_DATA_ITEM_UUID = "collectionItemUuid"
+    private const val CUSTOM_DATA_GOAL_UUID = "goalUuid"
     private const val COLLECTION_GOALS = "GOALS"
     private const val COLLECTION_PLAN_AGREEMENTS = "PLAN_AGREEMENTS"
-    private const val COLLECTION_NOTES = "NOTES"
     private const val LOOKBACK_GUARD_MARKER = "cannot be older than"
     private const val SYNC_STATE_KEY = "sentence_plan"
 
@@ -222,3 +253,5 @@ class SentencePlanSyncService(
     private val EPOCH: LocalDateTime = LocalDateTime.of(1970, 1, 1, 0, 0)
   }
 }
+
+data class ItemAuthorship(val createdBy: UUID, val updatedBy: UUID?)

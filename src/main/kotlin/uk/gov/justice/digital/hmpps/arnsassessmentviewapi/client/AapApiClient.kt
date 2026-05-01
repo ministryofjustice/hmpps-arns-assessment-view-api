@@ -42,6 +42,7 @@ class AapApiClient(
   fun queryTimeline(
     assessmentUuid: UUID,
     includeEventTypes: Set<String>? = null,
+    includeCustomTypes: Set<String>? = null,
     pageNumber: Int = 0,
     pageSize: Int = 50,
   ): TimelineQueryResult = executeQuery(
@@ -49,6 +50,7 @@ class AapApiClient(
       user = SYNC_USER,
       assessmentIdentifier = UuidIdentifier(assessmentUuid),
       includeEventTypes = includeEventTypes,
+      includeCustomTypes = includeCustomTypes,
       pageNumber = pageNumber,
       pageSize = pageSize,
     ),

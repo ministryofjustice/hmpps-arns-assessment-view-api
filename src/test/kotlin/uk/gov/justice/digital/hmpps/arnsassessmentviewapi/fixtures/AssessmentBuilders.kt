@@ -11,6 +11,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.PageInfo
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.SingleValue
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineQueryResult
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.Value
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service.ItemAuthorship
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -153,3 +154,25 @@ fun association(
   regionCode: String? = null,
   baseVersion: Long = 1,
 ): EntityAssociationDetails = EntityAssociationDetails(oasysPk, regionCode, baseVersion)
+
+// Builds an authorship map covering every item in the assessment (goals, agreements, and their nested
+// steps/notes). All items get the same `defaultUser` for both createdBy and updatedBy
+fun authorshipFor(
+  source: AssessmentVersionQueryResult,
+  defaultUser: UUID = UUID.randomUUID(),
+  overrides: Map<UUID, ItemAuthorship> = emptyMap(),
+): Map<UUID, ItemAuthorship> {
+  val map = mutableMapOf<UUID, ItemAuthorship>()
+  source.collections.forEach { coll ->
+    coll.items.forEach { item ->
+      map[item.uuid] = ItemAuthorship(defaultUser, defaultUser)
+      item.collections.forEach { nested ->
+        nested.items.forEach { nestedItem ->
+          map[nestedItem.uuid] = ItemAuthorship(defaultUser, defaultUser)
+        }
+      }
+    }
+  }
+  map.putAll(overrides)
+  return map
+}

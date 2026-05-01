@@ -63,6 +63,15 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     assertThat(goal.steps).hasSize(1)
     assertThat(goal.freeTexts).hasSize(1)
     assertThat(plan.agreements).hasSize(1)
+
+    // AND authorship resolves per-item: createdBy from CollectionItemAddedEvent rows,
+    // goal updatedBy from the GOAL_UPDATED custom timeline row.
+    assertThat(goal.createdByUserId).isEqualTo(GOAL_CREATOR)
+    assertThat(goal.updatedByUserId).isEqualTo(GOAL_UPDATER)
+    val step = goal.steps.single()
+    assertThat(step.createdByUserId).isEqualTo(STEP_CREATOR)
+    assertThat(goal.freeTexts.single().createdByUserId).isEqualTo(NOTE_CREATOR)
+    assertThat(plan.agreements.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
   }
 
   // Locks two behaviours mocks cannot prove:
@@ -113,5 +122,10 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     private val PLAN_ID = UUID.fromString("00000001-1111-1111-1111-000000000001")
     private val REWRITE_GOAL_ID = UUID.fromString("00000001-aaaa-aaaa-aaaa-000000000099")
     private val REWRITE_AGREEMENT_ID = UUID.fromString("00000001-dddd-dddd-dddd-000000000099")
+    private val GOAL_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000001")
+    private val STEP_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000002")
+    private val NOTE_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000003")
+    private val AGREEMENT_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000004")
+    private val GOAL_UPDATER = UUID.fromString("99999999-9999-9999-9999-000000000099")
   }
 }

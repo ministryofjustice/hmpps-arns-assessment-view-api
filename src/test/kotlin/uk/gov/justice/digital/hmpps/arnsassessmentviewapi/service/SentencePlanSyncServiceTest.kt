@@ -82,7 +82,7 @@ class SentencePlanSyncServiceTest {
     }
     whenever(syncStateRepository.findById(SYNC_STATE_KEY)).thenReturn(Optional.empty())
     whenever(syncStateRepository.save(any<SyncStateEntity>())).doAnswer { it.arguments[0] as SyncStateEntity }
-    whenever(aapApiClient.queryTimeline(any(), any(), any(), any())).thenReturn(emptyTimelinePage())
+    whenever(aapApiClient.queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())).thenReturn(emptyTimelinePage())
     whenever(mapper.toEntity(any(), any(), anyOrNull(), any())).thenAnswer {
       val source = it.arguments[0] as AssessmentVersionQueryResult
       stubEntity(source.assessmentUuid)
@@ -393,7 +393,7 @@ class SentencePlanSyncServiceTest {
       service.sync()
 
       // THEN we don't call for the timeline call when there's no authorship to attribute
-      verify(aapApiClient, never()).queryTimeline(any(), any(), any(), any())
+      verify(aapApiClient, never()).queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())
     }
 
     @Test
@@ -407,8 +407,8 @@ class SentencePlanSyncServiceTest {
       // WHEN the service syncs
       service.sync()
 
-      // THEN the timeline is queried so authorship can be looked up
-      verify(aapApiClient).queryTimeline(eq(uuid), any(), any(), any())
+      // THEN the timeline is queried twice once for createdBy (ADD events) and once for goal updatedBy (custom GOAL_* rows)
+      verify(aapApiClient, times(2)).queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())
     }
 
     @Test
@@ -425,8 +425,8 @@ class SentencePlanSyncServiceTest {
       // WHEN the service syncs
       service.sync()
 
-      // THEN the timeline is queried for goal-note creators
-      verify(aapApiClient).queryTimeline(eq(uuid), any(), any(), any())
+      // THEN the timeline is queried twice (createdBy + goal updatedBy harvesters)
+      verify(aapApiClient, times(2)).queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())
     }
 
     @Test
@@ -436,14 +436,14 @@ class SentencePlanSyncServiceTest {
       val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem()))))
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
       stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), any(), eq(0), any()))
+      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(0), any()))
         .thenReturn(timelinePageWithItems(uuid, items = emptyMap(), pageNumber = 0, totalPages = 10))
 
       // WHEN the service syncs
       service.sync()
 
-      // THEN only the first page is fetched
-      verify(aapApiClient, times(1)).queryTimeline(any(), any(), any(), any())
+      // THEN only the first page is fetched per harvester (createdBy + goal updatedBy = 2 calls total)
+      verify(aapApiClient, times(2)).queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())
     }
 
     @Test
@@ -463,9 +463,9 @@ class SentencePlanSyncServiceTest {
       )
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
       stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), any(), eq(0), any()))
+      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(0), any()))
         .thenReturn(timelinePageWithItems(uuid, items = mapOf(agreementUuid to agreementCreator), pageNumber = 0, totalPages = 2))
-      whenever(aapApiClient.queryTimeline(eq(uuid), any(), eq(1), any()))
+      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(1), any()))
         .thenReturn(timelinePageWithItems(uuid, items = mapOf(noteUuid to noteCreator), pageNumber = 1, totalPages = 2))
 
       // WHEN the service syncs
@@ -476,9 +476,12 @@ class SentencePlanSyncServiceTest {
         any(),
         any(),
         anyOrNull(),
-        check<Map<UUID, UUID>> {
+        check<Map<UUID, ItemAuthorship>> {
           assertThat(it).containsExactlyInAnyOrderEntriesOf(
-            mapOf(agreementUuid to agreementCreator, noteUuid to noteCreator),
+            mapOf(
+              agreementUuid to ItemAuthorship(agreementCreator, null),
+              noteUuid to ItemAuthorship(noteCreator, null),
+            ),
           )
         },
       )
@@ -493,7 +496,7 @@ class SentencePlanSyncServiceTest {
       val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid)))))
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
       stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), any(), any(), any())).thenReturn(
+      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())).thenReturn(
         TimelineQueryResult(
           timeline = listOf(
             timelineItem(uuid, agreementUuid, agreementCreator),
@@ -511,8 +514,8 @@ class SentencePlanSyncServiceTest {
         any(),
         any(),
         anyOrNull(),
-        check<Map<UUID, UUID>> {
-          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to agreementCreator))
+        check<Map<UUID, ItemAuthorship>> {
+          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
         },
       )
     }
@@ -526,7 +529,7 @@ class SentencePlanSyncServiceTest {
       val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid)))))
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
       stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), any(), any(), any())).thenReturn(
+      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())).thenReturn(
         TimelineQueryResult(
           timeline = listOf(
             timelineItem(uuid, agreementUuid, agreementCreator),
@@ -544,8 +547,8 @@ class SentencePlanSyncServiceTest {
         any(),
         any(),
         anyOrNull(),
-        check<Map<UUID, UUID>> {
-          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to agreementCreator))
+        check<Map<UUID, ItemAuthorship>> {
+          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
         },
       )
     }
@@ -558,7 +561,7 @@ class SentencePlanSyncServiceTest {
       val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid)))))
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
       stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), any(), any(), any())).thenReturn(
+      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())).thenReturn(
         TimelineQueryResult(
           timeline = listOf(timelineItem(uuid, dataOverride = mapOf("collectionItemUuid" to "not-a-uuid"))),
           pageInfo = PageInfo(0, 1),
@@ -588,7 +591,7 @@ class SentencePlanSyncServiceTest {
       val assoc = defaultAssociation()
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
       whenever(coordinatorApiClient.getLatestAssociationDetails(any())).thenReturn(mapOf(uuid to assoc))
-      whenever(aapApiClient.queryTimeline(eq(uuid), any(), any(), any()))
+      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any()))
         .thenReturn(timelinePageWithItems(uuid, items = mapOf(agreementUuid to agreementCreator)))
 
       // WHEN the service syncs
@@ -599,8 +602,8 @@ class SentencePlanSyncServiceTest {
         check<AssessmentVersionQueryResult> { assertThat(it.assessmentUuid).isEqualTo(uuid) },
         check<EntityAssociationDetails> { assertThat(it).isSameAs(assoc) },
         anyOrNull(),
-        check<Map<UUID, UUID>> {
-          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to agreementCreator))
+        check<Map<UUID, ItemAuthorship>> {
+          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
         },
       )
     }

@@ -1,13 +1,17 @@
--- Drop created_by columns on goal and step.
--- AAP has no single author for these at the aggregate level they're edited in place by multiple practitioners
-ALTER TABLE goal DROP COLUMN created_by_user_id;
-ALTER TABLE step DROP COLUMN created_by_user_id;
-
--- Convert free_text and plan_agreement creator columns from TEXT to UUID
+-- All four entities carry createdBy. Only goals carry updatedBy, aap-ui doesn't track per-step
+-- update authorship
 DELETE FROM free_text;
 DELETE FROM plan_agreement;
+DELETE FROM goal;            -- cascades to step + goal_related_area_of_need
+ALTER TABLE goal           ALTER COLUMN created_by_user_id TYPE UUID USING created_by_user_id::UUID;
+ALTER TABLE step           ALTER COLUMN created_by_user_id TYPE UUID USING created_by_user_id::UUID;
 ALTER TABLE free_text      ALTER COLUMN created_by_user_id TYPE UUID USING created_by_user_id::UUID;
 ALTER TABLE plan_agreement ALTER COLUMN created_by_user_id TYPE UUID USING created_by_user_id::UUID;
+
+-- Step has no updated_at / updated_by_user_id - aap-ui rolls step changes up to a parent
+-- GOAL_UPDATED event, so the goal's existing updated_at + updated_by_user_id cover step edits too.
+-- Goal updated_by_user_id is nullable: null means the goal has never been updated.
+ALTER TABLE goal ADD COLUMN updated_by_user_id UUID;
 
 -- Mirror of coordinator's deleted flag.
 ALTER TABLE sentence_plan ADD COLUMN deleted BOOLEAN NOT NULL DEFAULT FALSE;

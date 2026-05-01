@@ -38,4 +38,7 @@ class StepEntity(
 
   @Column(name = "created_at", nullable = false)
   val createdAt: Instant,
+
+  @Column(name = "created_by_user_id", nullable = false)
+  val createdByUserId: UUID,
 )
