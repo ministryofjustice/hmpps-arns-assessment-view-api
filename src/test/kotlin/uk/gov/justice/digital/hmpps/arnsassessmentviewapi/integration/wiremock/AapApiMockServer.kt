@@ -62,4 +62,17 @@ class AapApiMockServer : WireMockServer(WIREMOCK_PORT) {
         ),
     )
   }
+
+  fun stubSoftDeletedSinceQuery(responseBody: String, status: Int = 200) {
+    stubFor(
+      post(urlEqualTo("/query"))
+        .withRequestBody(containing("GetAssessmentsSoftDeletedSinceQuery"))
+        .willReturn(
+          aResponse()
+            .withHeader("Content-Type", "application/json")
+            .withBody(responseBody)
+            .withStatus(status),
+        ),
+    )
+  }
 }

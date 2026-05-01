@@ -7,6 +7,8 @@ import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsModifiedSinceQuery
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsModifiedSinceResult
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsSoftDeletedSinceQuery
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsSoftDeletedSinceResult
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.QueriesRequest
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.QueriesResponse
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.RequestableQuery
@@ -37,6 +39,17 @@ class AapApiClient(
         limit = limit,
       ),
     )
+  }
+
+  fun querySoftDeletedSince(
+    assessmentType: String,
+    since: LocalDateTime,
+  ): List<UUID> {
+    log.info("Querying AAP for {} soft-deleted since {}", assessmentType, since)
+    val result: GetAssessmentsSoftDeletedSinceResult = executeQuery(
+      GetAssessmentsSoftDeletedSinceQuery(user = SYNC_USER, assessmentType = assessmentType, since = since),
+    )
+    return result.assessments
   }
 
   fun queryTimeline(

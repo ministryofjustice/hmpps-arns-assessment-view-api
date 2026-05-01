@@ -39,6 +39,7 @@ class SentencePlanSyncService(
     var skipped = 0
     var failed = 0
     var processed = 0
+    var deletedFlagged = 0
 
     var cursor: UUID? = null
     while (true) {
@@ -100,18 +101,49 @@ class SentencePlanSyncService(
       cursor = page.nextCursor ?: break
     }
 
+    deletedFlagged = applySoftDeletes(since)
+
     persistSyncStartTime(syncStartTime)
 
     log.info(
-      "Sync complete: inserted={} updated={} skipped={} failed={} processed={} (since={}, syncStart={})",
+      "Sync complete: inserted={} updated={} skipped={} failed={} processed={} deleted={} (since={}, syncStart={})",
       inserted,
       updated,
       skipped,
       failed,
       processed,
+      deletedFlagged,
       since,
       syncStartTime,
     )
+  }
+
+  // AAP doesn't include deleted assessments in the modified-since stream, so we ask separately.
+  // Returns count of rows newly flagged deleted.
+  private fun applySoftDeletes(since: LocalDateTime): Int {
+    val deletedUuids = try {
+      aapApiClient.querySoftDeletedSince(ASSESSMENT_TYPE, since)
+    } catch (ex: WebClientResponseException) {
+      if (ex.isLookbackGuardTripped()) {
+        log.error("AAP rejected soft-delete query: lookback guard tripped ({}).", ex.responseBodyAsString.ifBlank { ex.message })
+        return 0
+      }
+      throw ex
+    }
+    if (deletedUuids.isEmpty()) return 0
+
+    return transactionTemplate.execute {
+      var flagged = 0
+      deletedUuids.forEach { uuid ->
+        val plan = sentencePlanRepository.findById(uuid).orElse(null) ?: return@forEach
+        if (!plan.deleted) {
+          plan.deleted = true
+          sentencePlanRepository.save(plan)
+          flagged++
+        }
+      }
+      flagged
+    } ?: 0
   }
 
   // Watermark = previous sync's start time, so the window covers everything updated since the previous sync began

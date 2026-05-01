@@ -89,18 +89,6 @@ class SentencePlanMapperTest {
     }
 
     @Test
-    fun `deleted=true on the source is mirrored on a new entity`() {
-      // GIVEN an assessment marked deleted=true at the source
-      val source = assessment(deleted = true)
-
-      // WHEN mapped without an existing entity
-      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
-
-      // THEN the new entity carries the tombstone flag
-      assertThat(plan.deleted).isTrue
-    }
-
-    @Test
     fun `update path mutates existing entity, refreshes lastSyncedAt, and clears nested collections`() {
       // GIVEN an existing entity already holding stale children, and an empty source so anything left
       // in the resulting collections must be a clear() failure rather than freshly added rows
@@ -163,31 +151,17 @@ class SentencePlanMapperTest {
     }
 
     @Test
-    fun `update path flips an existing plan's deleted flag from false to true`() {
-      // GIVEN a previously live plan and a fresh tombstone from AAP
-      val uuid = UUID.randomUUID()
-      val existing = existingPlan(uuid, deleted = false)
-      val source = assessment(uuid = uuid, deleted = true)
-
-      // WHEN mapped
-      val plan = mapper.toEntity(source, association(), existing = existing, authorship = authorshipFor(source))
-
-      // THEN AAP's deleted=true surfaces
-      assertThat(plan.deleted).isTrue
-    }
-
-    @Test
-    fun `update path can undelete a plan when AAP reports deleted=false`() {
-      // GIVEN a previously deleted plan and AAP now reports it as live
+    fun `mapper does not touch the deleted flag - it is owned by the soft-delete pass`() {
+      // GIVEN a previously deleted plan re-emitted by the modified since stream
       val uuid = UUID.randomUUID()
       val existing = existingPlan(uuid, deleted = true)
-      val source = assessment(uuid = uuid, deleted = false)
+      val source = assessment(uuid = uuid)
 
-      // WHEN mapped
+      // WHEN re-mapped from the modified-since path
       val plan = mapper.toEntity(source, association(), existing = existing, authorship = authorshipFor(source))
 
-      // THEN deleted is restored to false, view-api defers to AAP authoritatively
-      assertThat(plan.deleted).isFalse
+      // THEN the deleted flag is preserved (would be flipped only by the soft delete pass)
+      assertThat(plan.deleted).isTrue
     }
 
     @Test

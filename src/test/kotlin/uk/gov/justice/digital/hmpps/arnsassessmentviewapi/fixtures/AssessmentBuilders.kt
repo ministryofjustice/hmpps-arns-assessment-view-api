@@ -21,7 +21,6 @@ fun assessment(
   uuid: UUID = UUID.randomUUID(),
   identifiers: Map<IdentifierType, String> = mapOf(IdentifierType.CRN to "X000001"),
   collections: List<Collection> = emptyList(),
-  deleted: Boolean = false,
   createdAt: LocalDateTime = DEFAULT_TIME,
   updatedAt: LocalDateTime = DEFAULT_TIME,
 ): AssessmentVersionQueryResult = AssessmentVersionQueryResult(
@@ -38,7 +37,6 @@ fun assessment(
   identifiers = identifiers,
   assignedUser = null,
   flags = emptyList(),
-  deleted = deleted,
 )
 
 fun goalsCollection(items: List<CollectionItem>): Collection = collection("GOALS", items)

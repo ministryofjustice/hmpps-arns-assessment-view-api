@@ -26,6 +26,13 @@ data class GetAssessmentsModifiedSinceQuery(
   val limit: Int = 50,
 ) : RequestableQuery
 
+@JsonTypeName("GetAssessmentsSoftDeletedSinceQuery")
+data class GetAssessmentsSoftDeletedSinceQuery(
+  override val user: UserDetails,
+  val assessmentType: String,
+  val since: LocalDateTime,
+) : RequestableQuery
+
 @JsonTypeName("TimelineQuery")
 data class TimelineQuery(
   override val user: UserDetails,
@@ -100,7 +107,6 @@ data class AssessmentVersionQueryResult(
   val identifiers: Map<IdentifierType, String>,
   val assignedUser: AapUser?,
   val flags: List<String> = emptyList(),
-  val deleted: Boolean = false,
 )
 
 data class PageInfo(val pageNumber: Int, val totalPages: Int)
@@ -109,6 +115,11 @@ data class PageInfo(val pageNumber: Int, val totalPages: Int)
 data class GetAssessmentsModifiedSinceResult(
   val assessments: List<AssessmentVersionQueryResult>,
   val nextCursor: UUID? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class GetAssessmentsSoftDeletedSinceResult(
+  val assessments: List<UUID>,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

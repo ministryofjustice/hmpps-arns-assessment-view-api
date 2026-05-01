@@ -49,19 +49,18 @@ class SentencePlanMapper {
       oasysPk = association.oasysAssessmentPk,
       version = association.baseVersion.toInt(),
       regionCode = association.regionPrisonCode,
-      deleted = source.deleted,
     )
 
     if (existing != null) {
       // The assessment UUID is the only invariant per assessment. Every other field
-      // refreshes on every sync so view-api mirrors AAP+coordinator's current state
+      // refreshes on every sync so view-api mirrors AAP+coordinator's current state.
+      // `deleted` is deliberately NOT touched here, it is owned by the soft-delete pass.
       existing.createdAt = source.createdAt.toInstant()
       existing.updatedAt = source.updatedAt.toInstant()
       existing.lastSyncedAt = Instant.now()
       existing.oasysPk = association.oasysAssessmentPk
       existing.version = association.baseVersion.toInt()
       existing.regionCode = association.regionPrisonCode
-      existing.deleted = source.deleted
       existing.identifiers.clear()
       existing.agreements.clear()
       existing.goals.clear()

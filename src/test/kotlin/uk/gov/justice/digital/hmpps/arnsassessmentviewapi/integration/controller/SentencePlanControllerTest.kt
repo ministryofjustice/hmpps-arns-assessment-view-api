@@ -39,12 +39,13 @@ class SentencePlanControllerTest : IntegrationTestBase() {
   private fun sha256Hex(text: String): String = MessageDigest.getInstance("SHA-256")
     .digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 
-  private fun givenPlanWithIdentifiers(vararg identifiers: Pair<IdentifierType, String>): SentencePlanEntity {
+  private fun givenPlanWithIdentifiers(vararg identifiers: Pair<IdentifierType, String>, deleted: Boolean = false): SentencePlanEntity {
     val plan = SentencePlanEntity(
       id = UUID.randomUUID(),
       createdAt = Instant.now(),
       updatedAt = Instant.now(),
       version = 1,
+      deleted = deleted,
     )
     identifiers.forEach { (type, value) ->
       plan.identifiers.add(
@@ -210,6 +211,31 @@ class SentencePlanControllerTest : IntegrationTestBase() {
           """,
           true,
         )
+    }
+
+    @Test
+    fun `deleted plans are hidden from the endpoint - returns 404 if all matches are deleted`() {
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X555555", deleted = true)
+
+      webTestClient.get()
+        .uri("/sentence-plan/X555555")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
+        .exchange()
+        .expectStatus().isNotFound
+    }
+
+    @Test
+    fun `deleted plans are hidden from the endpoint - live siblings still surface`() {
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X666666", deleted = true)
+      givenPlanWithIdentifiers(IdentifierType.CRN to "X666666")
+
+      webTestClient.get()
+        .uri("/sentence-plan/X666666")
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
+        .exchange()
+        .expectStatus().isOk
+        .expectBody()
+        .jsonPath("$.length()").isEqualTo(1)
     }
 
     @Test

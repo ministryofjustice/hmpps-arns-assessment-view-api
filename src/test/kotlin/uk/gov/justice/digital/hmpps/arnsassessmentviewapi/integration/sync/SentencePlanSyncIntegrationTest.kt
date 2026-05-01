@@ -40,6 +40,8 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
   fun setUp() {
     repository.deleteAllInBatch()
     hmppsAuth.stubGrantToken()
+    // Default to "no soft-deletes since" so tests focused on the modified-since path don't have to stub it.
+    aapApi.stubSoftDeletedSinceQuery("""{"queries":[{"result":{"assessments":[]}}]}""")
   }
 
   // Smoke test: prove Spring beans, JPA cascade, wiremock contract, and JSON deserialisation
@@ -113,6 +115,24 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     val agreement = plan.agreements.single()
     assertThat(agreement.id).isEqualTo(REWRITE_AGREEMENT_ID)
     assertThat(agreement.status).isEqualTo(PlanStatus.AGREED)
+  }
+
+  @Test
+  fun `soft-delete pass flips deleted=true on plans returned by GetAssessmentsSoftDeletedSinceQuery`() {
+    // GIVEN one plan synced live
+    aapApi.stubModifiedSinceQuery(loadFixture("aap-query-1.json"))
+    aapApi.stubTimelineQuery(loadFixture("aap-timeline-1.json"))
+    coordinatorApi.stubEntityAssociations(loadFixture("coordinator-1.json"))
+    sentencePlanSyncService.sync()
+    assertThat(repository.findById(PLAN_ID).orElseThrow().deleted).isFalse
+
+    // WHEN AAP subsequently reports the plan as soft-deleted on a follow-up sync
+    aapApi.stubModifiedSinceQuery("""{"queries":[{"result":{"assessments":[],"nextCursor":null}}]}""")
+    aapApi.stubSoftDeletedSinceQuery("""{"queries":[{"result":{"assessments":["$PLAN_ID"]}}]}""")
+    sentencePlanSyncService.sync()
+
+    // THEN the local row is flagged deleted.
+    assertThat(repository.findById(PLAN_ID).orElseThrow().deleted).isTrue
   }
 
   private fun loadFixture(name: String): String = javaClass.classLoader.getResourceAsStream("fixtures/sync/$name")!!
