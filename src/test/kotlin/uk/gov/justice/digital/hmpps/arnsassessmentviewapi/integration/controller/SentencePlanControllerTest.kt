@@ -116,12 +116,12 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `returns 200 when user has ROLE_ASSESSMENT_VIEW`() {
+    fun `returns 200 when user has ROLE_ASSESSMENT_VIEW_DELIUS`() {
       givenPlanWithIdentifiers(IdentifierType.CRN to "X123456")
 
       webTestClient.get()
         .uri("/sentence-plan/X123456")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isOk
     }
@@ -133,7 +133,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     fun `returns 404 when no plans found`() {
       webTestClient.get()
         .uri("/sentence-plan/UNKNOWN")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isNotFound
         .expectBody()
@@ -145,7 +145,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     fun `returns 404 for unknown path`() {
       webTestClient.get()
         .uri("/sentence-plan")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isNotFound
         .expectBody()
@@ -159,7 +159,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
       val titleHash = sha256Hex("Find stable accommodation")
       webTestClient.get()
         .uri("/sentence-plan/X123456")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isOk
         .expectBody()
@@ -195,7 +195,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
 
       webTestClient.get()
         .uri("/sentence-plan/X777777")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isOk
         .expectBody()
@@ -219,7 +219,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
 
       webTestClient.get()
         .uri("/sentence-plan/X999999")
-        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW")))
+        .headers(setAuthorisation(roles = listOf("ROLE_ASSESSMENT_VIEW_DELIUS")))
         .exchange()
         .expectStatus().isOk
         .expectBody()

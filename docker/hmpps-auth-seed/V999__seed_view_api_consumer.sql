@@ -1,4 +1,4 @@
--- Seed a test consumer client with ROLE_ASSESSMENT_VIEW for local dev testing
+-- Seed a test consumer client with ROLE_ASSESSMENT_VIEW_DELIUS for local dev testing
 
 INSERT INTO oauth2_registered_client (id, client_id, client_id_issued_at, client_secret, client_secret_expires_at, client_name, client_authentication_methods, authorization_grant_types, redirect_uris, scopes, client_settings, token_settings, post_logout_redirect_uris)
 VALUES (
@@ -21,5 +21,5 @@ INSERT INTO oauth2_authorization_consent (registered_client_id, principal_name, 
 VALUES (
   '1f745be7-ef50-4032-9f31-1779fdd55f74',
   'test-api-consumer',
-  'ROLE_ASSESSMENT_VIEW'
+  'ROLE_ASSESSMENT_VIEW_DELIUS'
 ) ON CONFLICT (registered_client_id, principal_name) DO NOTHING;
