@@ -7,6 +7,7 @@ generic-service:
   # Sync runs on a scheduler in-process; avoid concurrent pods during rolling deploys
   strategy:
     type: Recreate
+    rollingUpdate: null
 
   image:
     repository: ghcr.io/ministryofjustice/hmpps-arns-assessment-view-api
