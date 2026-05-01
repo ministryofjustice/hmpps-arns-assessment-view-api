@@ -11,13 +11,13 @@ class SentencePlanService(
   private val sentencePlanRepository: SentencePlanRepository,
 ) {
   fun getSentencePlans(crn: String): List<SentencePlanResponse> {
-    log.info("Fetching sentence plans for CRN {}", crn)
+    log.info("Fetching sentence plans by CRN")
     val plans = sentencePlanRepository.findByIdentifier(IdentifierType.CRN, crn)
     if (plans.isEmpty()) {
-      log.info("No sentence plans found for CRN {}", crn)
-      throw SentencePlanNotFoundException(crn)
+      log.info("No sentence plans found")
+      throw SentencePlanNotFoundException()
     }
-    log.info("Found {} sentence plan(s) for CRN {}", plans.size, crn)
+    log.info("Found {} sentence plan(s)", plans.size)
     return plans.map { SentencePlanResponse.from(it) }
   }
 
@@ -26,4 +26,4 @@ class SentencePlanService(
   }
 }
 
-class SentencePlanNotFoundException(crn: String) : RuntimeException("No sentence plans found for CRN $crn")
+class SentencePlanNotFoundException : RuntimeException("No sentence plans found for the given CRN")

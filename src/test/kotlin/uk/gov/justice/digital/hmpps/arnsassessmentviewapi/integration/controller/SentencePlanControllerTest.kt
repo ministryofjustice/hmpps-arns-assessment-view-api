@@ -139,7 +139,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
         .expectStatus().isNotFound
         .expectBody()
         .jsonPath("$.status").isEqualTo(404)
-        .jsonPath("$.userMessage").isEqualTo("No sentence plans found for CRN UNKNOWN")
+        .jsonPath("$.userMessage").isEqualTo("No sentence plans found for the given CRN")
     }
 
     @Test
