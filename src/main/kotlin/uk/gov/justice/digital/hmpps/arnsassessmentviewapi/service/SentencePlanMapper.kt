@@ -278,7 +278,9 @@ class SentencePlanMapper {
     LocalDateTime.parse(this).toInstant()
   }.getOrNull()
 
-  private fun String.toLocalDateOrNull(): LocalDate? = runCatching { LocalDate.parse(this) }.getOrNull()
+  private fun String.toLocalDateOrNull(): LocalDate? = runCatching { LocalDate.parse(substringBefore('T')) }
+    .onFailure { log.warn("Could not parse '{}' as LocalDate", this) }
+    .getOrNull()
 
   private fun LocalDateTime.toInstant(): Instant = this.atZone(ZoneId.systemDefault()).toInstant()
 
