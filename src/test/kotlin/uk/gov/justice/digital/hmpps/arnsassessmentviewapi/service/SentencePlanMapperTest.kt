@@ -575,6 +575,18 @@ class SentencePlanMapperTest {
     }
 
     @Test
+    fun `parses target_date when AAP sends a full ISO instant`() {
+      // GIVEN a goal whose target_date a datetime
+      val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(targetDate = "2026-08-05T13:11:27.072Z")))))
+
+      // WHEN mapped
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
+
+      // THEN the date portion is extracted
+      assertThat(plan.goals.single().targetDate).isEqualTo(LocalDate.of(2026, 8, 5))
+    }
+
+    @Test
     fun `targetDate is null when target_date is absent`() {
       // GIVEN a goal with no target_date answer
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(targetDate = null)))))
