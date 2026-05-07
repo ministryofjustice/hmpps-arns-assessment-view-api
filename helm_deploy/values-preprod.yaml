@@ -13,6 +13,11 @@ generic-service:
     SYNC_ENABLED: "true"
     SYNC_INTERVAL_MINUTES: 5
 
+  allowlist:
+    delius-pre-prod-az1-nat-gateway: 52.56.240.62/32
+    delius-pre-prod-az2-nat-gateway: 18.130.110.168/32
+    delius-pre-prod-az3-nat-gateway: 35.178.44.184/32
+
 # CloudPlatform AlertManager receiver to route prometheus alerts to slack
 # See https://user-guide.cloud-platform.service.justice.gov.uk/documentation/monitoring-an-app/how-to-create-alarms.html#creating-your-own-custom-alerts
 generic-prometheus-alerts:

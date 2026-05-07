@@ -18,6 +18,7 @@ class OpenApiConfiguration(buildProperties: BuildProperties) {
     .servers(
       listOf(
         Server().url("https://arns-assessment-view-api-dev.hmpps.service.justice.gov.uk").description("Development"),
+        Server().url("https://arns-assessment-view-api-test.hmpps.service.justice.gov.uk").description("Test"),
         Server().url("https://arns-assessment-view-api-preprod.hmpps.service.justice.gov.uk").description("Pre-Production"),
         Server().url("https://arns-assessment-view-api.hmpps.service.justice.gov.uk").description("Production"),
         Server().url("http://localhost:8080").description("Local"),
