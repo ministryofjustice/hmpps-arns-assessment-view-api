@@ -1,14 +1,20 @@
 package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client
 
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.reactive.function.client.WebClientResponseException
 import org.springframework.web.reactive.function.client.bodyToMono
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.AssessmentVersionQuery
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.AssessmentVersionQueryResult
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.ExternalIdentifier
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsModifiedSinceQuery
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsModifiedSinceResult
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsSoftDeletedSinceQuery
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsSoftDeletedSinceResult
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.IdentifierType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.QueriesRequest
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.QueriesResponse
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.RequestableQuery
@@ -50,6 +56,33 @@ class AapApiClient(
       GetAssessmentsSoftDeletedSinceQuery(user = SYNC_USER, assessmentType = assessmentType, since = since),
     )
     return result.assessments
+  }
+
+  // A CRN can be associated with several sentence plans,
+  // but aap-api's AssessmentVersionQuery can resolve an ExternalIdentifier by selecting
+  // the most recently created assessment matching the CRN and assessment type.
+  // So this call returns at most the latest sentence plan for the CRN, earlier ones are not surfaced.
+  fun queryAssessmentByCrn(crn: String, assessmentType: String, user: UserDetails): AssessmentVersionQueryResult? {
+    log.info("Querying AAP for {} by CRN", assessmentType)
+    return try {
+      executeQuery<AssessmentVersionQueryResult>(
+        AssessmentVersionQuery(
+          user = user,
+          assessmentIdentifier = ExternalIdentifier(
+            identifier = crn,
+            identifierType = IdentifierType.CRN,
+            assessmentType = assessmentType,
+          ),
+        ),
+      )
+    } catch (ex: WebClientResponseException) {
+      if (ex.statusCode == HttpStatus.NOT_FOUND) {
+        log.info("AAP returned 404 for {} CRN lookup", assessmentType)
+        null
+      } else {
+        throw ex
+      }
+    }
   }
 
   fun queryTimeline(
