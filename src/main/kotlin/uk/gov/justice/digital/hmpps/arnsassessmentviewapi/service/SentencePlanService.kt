@@ -14,7 +14,7 @@ class SentencePlanService(
 ) {
   fun getSentencePlan(crn: String, authentication: Authentication): SentencePlanResponse {
     log.info("Fetching sentence plan from AAP by CRN")
-    val user = UserDetails(id = authentication.name, name = authentication.name)
+    val user = UserDetails(id = authentication.name, name = CALLER_DISPLAY_NAME)
     val assessment = aapApiClient.queryAssessmentByCrn(crn, SENTENCE_PLAN_ASSESSMENT_TYPE, user)
       ?: throw SentencePlanNotFoundException()
     return mapper.toResponse(assessment)
@@ -22,6 +22,7 @@ class SentencePlanService(
 
   private companion object {
     private val log = LoggerFactory.getLogger(this::class.java)
+    private const val CALLER_DISPLAY_NAME = "view-api (nDelius)"
   }
 }
 

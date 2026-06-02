@@ -10,7 +10,7 @@ import java.util.UUID
 data class UserDetails(
   val id: String,
   val name: String,
-  val authSource: String = "NOT_SPECIFIED",
+  val authSource: String = "HMPPS_AUTH",
 )
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
