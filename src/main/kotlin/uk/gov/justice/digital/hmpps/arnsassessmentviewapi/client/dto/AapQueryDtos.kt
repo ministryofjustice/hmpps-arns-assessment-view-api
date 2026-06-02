@@ -10,6 +10,7 @@ import java.util.UUID
 data class UserDetails(
   val id: String,
   val name: String,
+  val authSource: String = "HMPPS_AUTH",
 )
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
@@ -43,12 +44,29 @@ data class TimelineQuery(
   val pageSize: Int = 50,
 ) : RequestableQuery
 
+@JsonTypeName("AssessmentVersionQuery")
+data class AssessmentVersionQuery(
+  override val user: UserDetails,
+  val assessmentIdentifier: AssessmentIdentifier,
+  val timestamp: LocalDateTime? = null,
+) : RequestableQuery
+
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-@JsonSubTypes(JsonSubTypes.Type(value = UuidIdentifier::class, name = "UUID"))
+@JsonSubTypes(
+  JsonSubTypes.Type(value = UuidIdentifier::class, name = "UUID"),
+  JsonSubTypes.Type(value = ExternalIdentifier::class, name = "EXTERNAL"),
+)
 sealed interface AssessmentIdentifier
 
 @JsonTypeName("UUID")
 data class UuidIdentifier(val uuid: UUID) : AssessmentIdentifier
+
+@JsonTypeName("EXTERNAL")
+data class ExternalIdentifier(
+  val identifier: String,
+  val identifierType: IdentifierType,
+  val assessmentType: String,
+) : AssessmentIdentifier
 
 data class QueriesRequest(val queries: List<RequestableQuery>)
 

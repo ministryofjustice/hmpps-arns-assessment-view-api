@@ -75,4 +75,17 @@ class AapApiMockServer : WireMockServer(WIREMOCK_PORT) {
         ),
     )
   }
+
+  fun stubAssessmentVersionQuery(responseBody: String, status: Int = 200) {
+    stubFor(
+      post(urlEqualTo("/query"))
+        .withRequestBody(containing("AssessmentVersionQuery"))
+        .willReturn(
+          aResponse()
+            .withHeader("Content-Type", "application/json")
+            .withBody(responseBody)
+            .withStatus(status),
+        ),
+    )
+  }
 }

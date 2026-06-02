@@ -1,29 +1,29 @@
 package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service
 
 import org.slf4j.LoggerFactory
+import org.springframework.security.core.Authentication
 import org.springframework.stereotype.Service
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.AapApiClient
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UserDetails
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.controller.response.SentencePlanResponse
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.IdentifierType
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePlanRepository
 
 @Service
 class SentencePlanService(
-  private val sentencePlanRepository: SentencePlanRepository,
+  private val aapApiClient: AapApiClient,
+  private val mapper: AssessmentVersionToResponseMapper,
 ) {
-  fun getSentencePlans(crn: String): List<SentencePlanResponse> {
-    log.info("Fetching sentence plans by CRN")
-    val plans = sentencePlanRepository.findByIdentifier(IdentifierType.CRN, crn)
-    if (plans.isEmpty()) {
-      log.info("No sentence plans found")
-      throw SentencePlanNotFoundException()
-    }
-    log.info("Found {} sentence plan(s)", plans.size)
-    return plans.map { SentencePlanResponse.from(it) }
+  fun getSentencePlan(crn: String, authentication: Authentication): SentencePlanResponse {
+    log.info("Fetching sentence plan from AAP by CRN")
+    val user = UserDetails(id = authentication.name, name = CALLER_DISPLAY_NAME)
+    val assessment = aapApiClient.queryAssessmentByCrn(crn, SENTENCE_PLAN_ASSESSMENT_TYPE, user)
+      ?: throw SentencePlanNotFoundException()
+    return mapper.toResponse(assessment)
   }
 
   private companion object {
     private val log = LoggerFactory.getLogger(this::class.java)
+    private const val CALLER_DISPLAY_NAME = "view-api (nDelius)"
   }
 }
 
-class SentencePlanNotFoundException : RuntimeException("No sentence plans found for the given CRN")
+class SentencePlanNotFoundException : RuntimeException("No sentence plan found for the given CRN")

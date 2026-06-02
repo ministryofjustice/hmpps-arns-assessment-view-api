@@ -1,6 +1,7 @@
 package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.client
 
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
@@ -8,7 +9,10 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.AapApiClient
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.IdentifierType
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UserDetails
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension.Companion.aapApi
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.HmppsAuthApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.HmppsAuthApiExtension.Companion.hmppsAuth
 
@@ -28,9 +32,47 @@ class AapApiClientTest {
   @Autowired
   private lateinit var aapApiClient: AapApiClient
 
+  private val testUser = UserDetails(id = "test-user", name = "test-user")
+
+  @BeforeEach
+  fun setUp() {
+    hmppsAuth.stubGrantToken()
+  }
+
   @Test
   fun `client bean is wired with OAuth2 WebClient`() {
-    hmppsAuth.stubGrantToken()
     assertThat(aapApiClient).isNotNull
+  }
+
+  @Test
+  fun `queryAssessmentByCrn deserialises a single result`() {
+    aapApi.stubAssessmentVersionQuery(
+      """
+      {"queries":[{"result":{
+        "assessmentUuid":"00000001-1111-1111-1111-000000000001",
+        "aggregateUuid":"00000001-2222-2222-2222-000000000002",
+        "assessmentType":"SENTENCE_PLAN","formVersion":"v1.0",
+        "createdAt":"2025-01-01T10:00:00","updatedAt":"2025-01-01T10:00:00",
+        "answers":{},"properties":{},"collections":[],
+        "collaborators":[],
+        "identifiers":{"CRN":"X123456"},
+        "flags":[]
+      }}]}
+      """.trimIndent(),
+    )
+
+    val result = aapApiClient.queryAssessmentByCrn("X123456", "SENTENCE_PLAN", testUser)
+
+    assertThat(result).isNotNull
+    assertThat(result!!.identifiers[IdentifierType.CRN]).isEqualTo("X123456")
+  }
+
+  @Test
+  fun `queryAssessmentByCrn returns null on 404`() {
+    aapApi.stubAssessmentVersionQuery("""{"error":"not found"}""", status = 404)
+
+    val result = aapApiClient.queryAssessmentByCrn("UNKNOWN", "SENTENCE_PLAN", testUser)
+
+    assertThat(result).isNull()
   }
 }

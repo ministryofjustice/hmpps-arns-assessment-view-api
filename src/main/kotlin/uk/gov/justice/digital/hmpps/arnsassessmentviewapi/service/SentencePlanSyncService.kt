@@ -270,7 +270,7 @@ class SentencePlanSyncService(
 
   private companion object {
     private val log = LoggerFactory.getLogger(this::class.java)
-    private const val ASSESSMENT_TYPE = "SENTENCE_PLAN"
+    private const val ASSESSMENT_TYPE = SENTENCE_PLAN_ASSESSMENT_TYPE
     private const val PAGE_SIZE = 50
     private const val ADD_EVENT_TYPE = "CollectionItemAddedEvent"
     private val GOAL_UPDATE_CUSTOM_TYPES = setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")
