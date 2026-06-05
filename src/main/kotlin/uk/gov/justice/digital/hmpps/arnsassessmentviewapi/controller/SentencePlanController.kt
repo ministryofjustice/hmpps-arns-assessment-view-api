@@ -17,7 +17,7 @@ import uk.gov.justice.hmpps.kotlin.common.ErrorResponse
 
 @RestController
 @RequestMapping("/sentence-plan")
-@PreAuthorize("hasRole('ROLE_ASSESSMENT_VIEW_DELIUS')")
+@PreAuthorize("hasAnyRole('ROLE_ASSESSMENT_VIEW_DELIUS', 'ASSESSMENT_VIEW_API_USER_CLIENT_RO')")
 class SentencePlanController(
   private val sentencePlanService: SentencePlanService,
 ) {

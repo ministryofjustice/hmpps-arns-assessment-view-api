@@ -61,6 +61,17 @@ class SentencePlanControllerTest : IntegrationTestBase() {
     }
   }
 
+  @Test
+  fun `returns 200 when user has ASSESSMENT_VIEW_API_USER_CLIENT_RO`() {
+    aapApi.stubAssessmentVersionQuery(minimalAssessmentResponse(crn = "X123456"))
+
+    webTestClient.get()
+      .uri("/sentence-plan/X123456")
+      .headers(setAuthorisation(roles = listOf("ASSESSMENT_VIEW_API_USER_CLIENT_RO")))
+      .exchange()
+      .expectStatus().isOk
+  }
+
   @Nested
   inner class GetSentencePlan {
     @Test
