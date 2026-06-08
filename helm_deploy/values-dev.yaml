@@ -2,7 +2,7 @@
 # Per environment values which override defaults in hmpps-arns-assessment-view-api/values.yaml
 
 generic-service:
-  serviceAccountName: hmpps-assess-risks-and-needs-coordinator-api # This can be hoisted to values.yml later.
+  serviceAccountName: hmpps-assess-risks-and-needs-assessment-view-api # This can be hoisted to values.yml later.
 
   ingress:
     host: arns-assessment-view-api-dev.hmpps.service.justice.gov.uk
