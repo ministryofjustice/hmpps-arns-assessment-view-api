@@ -23,6 +23,7 @@ services:
       AAP_API_BASE_URL: http://aap-api:8080
       API_CLIENT_ID: hmpps-arns-assessment-view-api
       API_CLIENT_SECRET: clientsecret
+      JAVA_TOOL_OPTIONS: '-Djava.net.preferIPv4Stack=true'
 
   coordinator-api:
     image: ghcr.io/ministryofjustice/hmpps-assess-risks-and-needs-coordinator-api:latest
@@ -44,6 +45,7 @@ services:
       SAN_API_BASE_URL: http://localhost:8080
       SP_API_BASE_URL: http://localhost:8080
       AAP_API_BASE_URL: http://aap-api:8080
+      APP_STRATEGIES_ASSESSMENT: false
 
   aap-api:
     image: ghcr.io/ministryofjustice/hmpps-arns-assessment-platform-api:latest

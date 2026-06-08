@@ -11,3 +11,11 @@ services:
     ports:
       - "8080:8080"
       - "5005:5005"
+
+  aap-api:
+    ports:
+      - "8090:8080"
+
+  coordinator-api:
+    ports:
+      - "6060:8080"
