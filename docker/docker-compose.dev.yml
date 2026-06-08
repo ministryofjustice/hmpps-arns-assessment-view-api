@@ -6,7 +6,6 @@ services:
     environment:
       TZ: 'Europe/London'
       JAVA_TOOL_OPTIONS: '-Djava.net.preferIPv4Stack=true'
-      APP_SYNC_ENABLED: true
     volumes:
       - ../.git:/app/.git
       - ../.gradle:/home/gradle/.gradle
