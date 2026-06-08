@@ -13,3 +13,7 @@ services:
       - ../src:/app/src
       - ../build.gradle.kts:/app/build.gradle.kts
       - ../settings.gradle.kts:/app/settings.gradle.kts
+
+volumes:
+  .gradle:
+  build:
