@@ -9,6 +9,7 @@ services:
       - postgres
       - coordinator-api
       - aap-api
+      - localstack
     command: gradle --parallel --build-cache bootRun
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/ping"]
@@ -23,6 +24,28 @@ services:
       AAP_API_BASE_URL: http://aap-api:8080
       API_CLIENT_ID: hmpps-arns-assessment-view-api
       API_CLIENT_SECRET: clientsecret
+      HMPPS_SQS_PROVIDER: localstack
+      HMPPS_SQS_LOCALSTACK_URL: http://localstack:4566
+      HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME: coordinator-queue
+
+  localstack:
+    image: localstack/localstack:4
+    networks:
+      - hmpps
+    healthcheck:
+      test: ["CMD", "bash", "/scripts/wait/healthcheck.sh"]
+      interval: 5s
+      timeout: 10s
+      retries: 50
+    volumes:
+      - "./scripts/localstack/init:/etc/localstack/init/ready.d"
+      - "./scripts/localstack/wait:/scripts/wait"
+    environment:
+      - SERVICES=sqs
+      - LOCALSTACK_HOST=localstack:4566
+      - DEFAULT_REGION=eu-west-2
+      - AWS_DEFAULT_REGION=eu-west-2
+      - USE_SSL=false
 
   coordinator-api:
     image: ghcr.io/ministryofjustice/hmpps-assess-risks-and-needs-coordinator-api:latest

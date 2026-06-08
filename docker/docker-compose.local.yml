@@ -19,3 +19,7 @@ services:
   coordinator-api:
     ports:
       - "6060:8080"
+
+  localstack:
+    ports:
+      - "4566:4566"
