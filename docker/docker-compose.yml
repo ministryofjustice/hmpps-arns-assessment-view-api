@@ -17,7 +17,7 @@ services:
       retries: 100
     environment:
       SERVER_PORT: 8080
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: dev,coordinator-queue
       HMPPS_AUTH_URL: http://hmpps-auth:9090/auth
       DATABASE_ENDPOINT: postgres:5432
       COORDINATOR_API_BASE_URL: http://coordinator-api:8080
@@ -27,6 +27,7 @@ services:
       HMPPS_SQS_PROVIDER: localstack
       HMPPS_SQS_LOCALSTACK_URL: http://localstack:4566
       HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME: coordinator-queue
+      COORDINATOR_EVENT_LISTENER_ENABLED: "true"
 
   localstack:
     image: localstack/localstack:4

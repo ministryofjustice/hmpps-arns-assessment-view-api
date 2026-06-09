@@ -33,10 +33,6 @@ management:
         time-to-live: 2000ms
 
 spring:
-  profiles:
-    # Queue name doubles as the activating profile. Empty when secret not wired.
-    include: ${HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME:}
-
   application:
     name: hmpps-arns-assessment-view-api
 
@@ -110,7 +106,8 @@ app:
     enabled: ${SYNC_ENABLED:false}
     interval-minutes: ${SYNC_INTERVAL_MINUTES:60}
 
-# Loaded only when the queue-name secret is wired (profile include above).
+# `coordinator-queue` profile registers the SQS queue. The listener is a separate switch
+# (COORDINATOR_EVENT_LISTENER_ENABLED) so it can be off while the queue is configured.
 ---
 spring:
   config:
