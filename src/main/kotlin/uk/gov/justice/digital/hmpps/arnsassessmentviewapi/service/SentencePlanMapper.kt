@@ -33,7 +33,8 @@ class SentencePlanMapper {
       updatedAt = source.updatedAt.toInstant(),
       lastSyncedAt = Instant.now(),
       oasysPk = association.oasysAssessmentPk,
-      version = association.baseVersion.toInt(),
+      // The sync owns the mutable current state row, lifecycle event snapshots are written elsewhere.
+      version = SentencePlanEntity.CURRENT_VERSION,
       regionCode = association.regionPrisonCode,
     )
 
@@ -45,7 +46,7 @@ class SentencePlanMapper {
       existing.updatedAt = source.updatedAt.toInstant()
       existing.lastSyncedAt = Instant.now()
       existing.oasysPk = association.oasysAssessmentPk
-      existing.version = association.baseVersion.toInt()
+      existing.version = SentencePlanEntity.CURRENT_VERSION
       existing.regionCode = association.regionPrisonCode
       existing.identifiers.clear()
       existing.agreements.clear()

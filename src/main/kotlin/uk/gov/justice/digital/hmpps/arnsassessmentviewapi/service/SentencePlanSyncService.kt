@@ -9,6 +9,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.CoordinatorApiC
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.AssessmentVersionQueryResult
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.EntityAssociationDetails
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.GetAssessmentsModifiedSinceResult
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SyncStateEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePlanRepository
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SyncStateRepository
@@ -135,7 +136,7 @@ class SentencePlanSyncService(
     return transactionTemplate.execute {
       var flagged = 0
       deletedUuids.forEach { uuid ->
-        val plan = sentencePlanRepository.findById(uuid).orElse(null) ?: return@forEach
+        val plan = sentencePlanRepository.findByIdAndVersion(uuid, SentencePlanEntity.CURRENT_VERSION).orElse(null) ?: return@forEach
         if (!plan.deleted) {
           plan.deleted = true
           sentencePlanRepository.save(plan)
@@ -188,7 +189,7 @@ class SentencePlanSyncService(
 
     // TransactionTemplate (not @Transactional) avoids the self-invocation proxy trap.
     val outcome: UpsertOutcome? = transactionTemplate.execute {
-      val existing = sentencePlanRepository.findById(assessment.assessmentUuid).orElse(null)
+      val existing = sentencePlanRepository.findByIdAndVersion(assessment.assessmentUuid, SentencePlanEntity.CURRENT_VERSION).orElse(null)
       if (existing != null) {
         existing.identifiers.clear()
         existing.agreements.clear()

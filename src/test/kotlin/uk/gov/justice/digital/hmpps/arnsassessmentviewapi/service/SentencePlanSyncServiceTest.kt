@@ -89,7 +89,7 @@ class SentencePlanSyncServiceTest {
     }
     whenever(repository.save(any<SentencePlanEntity>())).doAnswer { it.arguments[0] as SentencePlanEntity }
     whenever(repository.saveAndFlush(any<SentencePlanEntity>())).doAnswer { it.arguments[0] as SentencePlanEntity }
-    whenever(repository.findById(any<UUID>())).thenReturn(Optional.empty())
+    whenever(repository.findByIdAndVersion(any(), any())).thenReturn(Optional.empty())
   }
 
   // ----------------------------------------------------------------------------------------------
@@ -308,7 +308,7 @@ class SentencePlanSyncServiceTest {
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any()))
         .thenReturn(page(listOf(assessment(poison), assessment(good))))
       stubAssociationsFor(poison, good)
-      whenever(repository.findById(poison)).thenThrow(RuntimeException("boom"))
+      whenever(repository.findByIdAndVersion(eq(poison), any())).thenThrow(RuntimeException("boom"))
 
       // WHEN the service syncs
       service.sync()
@@ -331,14 +331,14 @@ class SentencePlanSyncServiceTest {
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any()))
         .thenReturn(page(listOf(assessment(uuid))))
       stubAssociationsFor(uuid)
-      whenever(repository.findById(uuid)).thenReturn(Optional.of(existing))
+      whenever(repository.findByIdAndVersion(eq(uuid), any())).thenReturn(Optional.of(existing))
 
       // WHEN the service syncs
       service.sync()
 
       // THEN saveAndFlush of the cleared existing entity precedes mapper invocation, which precedes the final save
       val ordered = inOrder(repository, mapper)
-      ordered.verify(repository).findById(uuid)
+      ordered.verify(repository).findByIdAndVersion(eq(uuid), any())
       ordered.verify(repository).saveAndFlush(check<SentencePlanEntity> { assertThat(it).isSameAs(existing) })
       ordered.verify(mapper).toEntity(any(), any(), eq(existing), any())
       ordered.verify(repository).save(any<SentencePlanEntity>())
@@ -351,7 +351,7 @@ class SentencePlanSyncServiceTest {
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any()))
         .thenReturn(page(listOf(assessment(uuid))))
       stubAssociationsFor(uuid)
-      whenever(repository.findById(uuid)).thenReturn(Optional.empty())
+      whenever(repository.findByIdAndVersion(eq(uuid), any())).thenReturn(Optional.empty())
 
       // WHEN the service syncs
       service.sync()
@@ -615,7 +615,7 @@ class SentencePlanSyncServiceTest {
       val existing = stubEntity(uuid)
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(assessment(uuid))))
       stubAssociationsFor(uuid)
-      whenever(repository.findById(uuid)).thenReturn(Optional.of(existing))
+      whenever(repository.findByIdAndVersion(eq(uuid), any())).thenReturn(Optional.of(existing))
 
       // WHEN the service syncs
       service.sync()
@@ -632,7 +632,7 @@ class SentencePlanSyncServiceTest {
       val uuid = UUID.randomUUID()
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(assessment(uuid))))
       stubAssociationsFor(uuid)
-      whenever(repository.findById(uuid)).thenReturn(Optional.empty())
+      whenever(repository.findByIdAndVersion(eq(uuid), any())).thenReturn(Optional.empty())
 
       // WHEN the service syncs
       service.sync()

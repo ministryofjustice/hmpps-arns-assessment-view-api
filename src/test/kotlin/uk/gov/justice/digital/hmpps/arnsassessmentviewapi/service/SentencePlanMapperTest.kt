@@ -44,7 +44,7 @@ class SentencePlanMapperTest {
   inner class ToEntityTopLevel {
 
     @Test
-    fun `creates new entity with id, version, oasysPk, regionCode, and deleted flag from source and association`() {
+    fun `creates new entity with id, current-state version, oasysPk, regionCode, and deleted flag from source and association`() {
       // GIVEN an assessment and association with a fresh UUID and no existing entity
       val uuid = UUID.randomUUID()
       val source = assessment(uuid = uuid)
@@ -56,7 +56,7 @@ class SentencePlanMapperTest {
       // THEN top level fields come from source + association
       assertThat(plan.id).isEqualTo(uuid)
       assertThat(plan.oasysPk).isEqualTo("12345")
-      assertThat(plan.version).isEqualTo(3)
+      assertThat(plan.version).isEqualTo(SentencePlanEntity.CURRENT_VERSION)
       assertThat(plan.regionCode).isEqualTo("LDN")
       assertThat(plan.deleted).isFalse
     }
@@ -120,7 +120,7 @@ class SentencePlanMapperTest {
     }
 
     @Test
-    fun `update path refreshes createdAt, updatedAt, oasysPk, version, and regionCode from new source and association`() {
+    fun `update path refreshes createdAt, updatedAt, oasysPk, and regionCode from new source and association, holding version at the sentinel`() {
       // GIVEN an existing entity with one set of values
       val uuid = UUID.randomUUID()
       val existing = SentencePlanEntity(
@@ -129,7 +129,7 @@ class SentencePlanMapperTest {
         updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
         lastSyncedAt = Instant.parse("2026-01-01T00:00:00Z"),
         oasysPk = "OLD-PK",
-        version = 1,
+        version = SentencePlanEntity.CURRENT_VERSION,
         regionCode = "OLD",
         deleted = false,
       )
@@ -142,11 +142,11 @@ class SentencePlanMapperTest {
 
       mapper.toEntity(source, newAssoc, existing = existing, authorship = authorshipFor(source))
 
-      // THEN every field on the existing entity reflects the new values.
+      // THEN mutable fields reflect the new values
       assertThat(existing.createdAt).isEqualTo(newCreated.atZone(java.time.ZoneId.systemDefault()).toInstant())
       assertThat(existing.updatedAt).isEqualTo(newUpdated.atZone(java.time.ZoneId.systemDefault()).toInstant())
       assertThat(existing.oasysPk).isEqualTo("NEW-PK")
-      assertThat(existing.version).isEqualTo(7)
+      assertThat(existing.version).isEqualTo(SentencePlanEntity.CURRENT_VERSION)
       assertThat(existing.regionCode).isEqualTo("NEW")
     }
 

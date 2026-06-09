@@ -9,6 +9,7 @@ import org.springframework.test.context.TestPropertySource
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.CriminogenicNeed
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.GoalStatus
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.PlanStatus
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension.Companion.aapApi
@@ -57,7 +58,7 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     sentencePlanSyncService.sync()
 
     // THEN the plan is persisted with its identifier, goal+step+note, and agreement reachable via JPA
-    val plan = repository.findById(PLAN_ID).orElseThrow()
+    val plan = repository.findByIdAndVersion(PLAN_ID, SentencePlanEntity.CURRENT_VERSION).orElseThrow()
     assertThat(plan.identifiers).hasSize(1)
     assertThat(plan.identifiers.single().value).isEqualTo("X000001")
     assertThat(plan.goals).hasSize(1)
@@ -79,7 +80,7 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
   // Locks two behaviours mocks cannot prove:
   // 1. clear() + saveAndFlush() avoids the unique-constraint trip on (sentence_plan_id, type, value)
   //    when re-syncing the same identifier value, and orphan removal cleans up replaced goals/agreements/notes.
-  // 2. Fields (oasysPk, version, regionCode) refresh on every sync the assessment UUID
+  // 2. Fields (oasysPk, regionCode) refresh on every sync the assessment UUID
   //    is the only invariant per assessment.
   @Test
   fun `re-syncing the same plan replaces nested children and refreshes fields`() {
@@ -99,9 +100,9 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     // THEN the parent plan is intact, fields reflect the rewrite values, and children
     // have been swapped out for the rewrite payload. The identifier value being identical across both
     // syncs also proves clear() + saveAndFlush() is preventing a unique constraint violation
-    val plan = repository.findById(PLAN_ID).orElseThrow()
+    val plan = repository.findByIdAndVersion(PLAN_ID, SentencePlanEntity.CURRENT_VERSION).orElseThrow()
     assertThat(plan.oasysPk).isEqualTo("1000099")
-    assertThat(plan.version).isEqualTo(5)
+    assertThat(plan.version).isEqualTo(SentencePlanEntity.CURRENT_VERSION)
     assertThat(plan.regionCode).isEqualTo("MDI")
     assertThat(plan.identifiers.single().value).isEqualTo("X000001")
     assertThat(plan.goals).hasSize(1)
@@ -124,7 +125,7 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     aapApi.stubTimelineQuery(loadFixture("aap-timeline-1.json"))
     coordinatorApi.stubEntityAssociations(loadFixture("coordinator-1.json"))
     sentencePlanSyncService.sync()
-    assertThat(repository.findById(PLAN_ID).orElseThrow().deleted).isFalse
+    assertThat(repository.findByIdAndVersion(PLAN_ID, SentencePlanEntity.CURRENT_VERSION).orElseThrow().deleted).isFalse
 
     // WHEN AAP subsequently reports the plan as soft-deleted on a follow-up sync
     aapApi.stubModifiedSinceQuery("""{"queries":[{"result":{"assessments":[],"nextCursor":null}}]}""")
@@ -132,7 +133,7 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     sentencePlanSyncService.sync()
 
     // THEN the local row is flagged deleted.
-    assertThat(repository.findById(PLAN_ID).orElseThrow().deleted).isTrue
+    assertThat(repository.findByIdAndVersion(PLAN_ID, SentencePlanEntity.CURRENT_VERSION).orElseThrow().deleted).isTrue
   }
 
   private fun loadFixture(name: String): String = javaClass.classLoader.getResourceAsStream("fixtures/sync/$name")!!
