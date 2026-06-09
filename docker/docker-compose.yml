@@ -27,7 +27,6 @@ services:
       HMPPS_SQS_PROVIDER: localstack
       HMPPS_SQS_LOCALSTACK_URL: http://localstack:4566
       HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME: coordinator-queue
-      COORDINATOR_EVENT_LISTENER_ENABLED: "true"
 
   localstack:
     image: localstack/localstack:4
