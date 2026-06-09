@@ -3,6 +3,7 @@ package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging
 import io.awspring.cloud.sqs.annotation.SqsListener
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 
 /**
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component
  * `app.coordinator-event-listener.enabled` so it stays opt-in per environment.
  */
 @Component
+@Profile("coordinator-queue")
 @ConditionalOnProperty("app.coordinator-event-listener.enabled", havingValue = "true")
 class CoordinatorEventListener {
 
