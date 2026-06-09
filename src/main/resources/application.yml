@@ -92,13 +92,6 @@ springdoc:
   swagger-ui:
     version: 5.32.1
 
-hmpps:
-  sqs:
-    queues:
-      coordinator:
-        queue-name: ${HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME:}
-        error-visibility-timeout: 30
-
 app:
   services:
     hmpps-auth:
@@ -112,3 +105,18 @@ app:
   sync:
     enabled: ${SYNC_ENABLED:false}
     interval-minutes: ${SYNC_INTERVAL_MINUTES:60}
+
+# `coordinator-queue` profile registers the SQS queue. The listener is a separate switch
+# (COORDINATOR_EVENT_LISTENER_ENABLED) so it can be off while the queue is configured.
+---
+spring:
+  config:
+    activate:
+      on-profile: coordinator-queue
+
+hmpps:
+  sqs:
+    queues:
+      coordinator:
+        queue-name: ${HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME}
+        error-visibility-timeout: 30
