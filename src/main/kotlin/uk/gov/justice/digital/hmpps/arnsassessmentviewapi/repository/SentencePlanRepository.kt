@@ -17,9 +17,6 @@ interface SentencePlanRepository : JpaRepository<SentencePlanEntity, UUID> {
   @Query("SELECT sp FROM SentencePlanEntity sp JOIN sp.identifiers i WHERE i.type = :type AND i.value = :value AND sp.deleted = false")
   fun findByIdentifier(type: IdentifierType, value: String): List<SentencePlanEntity>
 
-  // TODO: version becomes Long once the V4 migration
-  fun findByIdAndVersion(id: UUID, version: Int): SentencePlanEntity?
-
   @Modifying
   @Transactional
   @Query("UPDATE SentencePlanEntity sp SET sp.deleted = :deleted WHERE sp.id = :id")

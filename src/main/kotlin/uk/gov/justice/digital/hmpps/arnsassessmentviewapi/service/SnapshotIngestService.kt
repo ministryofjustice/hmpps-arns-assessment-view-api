@@ -29,7 +29,7 @@ class SnapshotIngestService(
   fun applyDeleteFlagUpdate(envelope: CoordinatorEvent, payload: DeleteFlagUpdatePayload) {
     // TODO: impl
     log.info(
-      "applyDeleteFlagUpdate (no-op): entityUuid={} deleted={} versionFrom={} versionTo={} ",
+      "applyDeleteFlagUpdate (no-op): entityUuid={} deleted={} versionFrom={} versionTo={}",
       envelope.entityUuid,
       payload.deleted,
       payload.versionFrom,
