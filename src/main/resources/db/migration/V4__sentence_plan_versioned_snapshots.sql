@@ -59,7 +59,3 @@ ALTER TABLE sentence_plan ADD CONSTRAINT sentence_plan_id_version_key UNIQUE (id
 
 -- 8. index for lookups by logical id
 CREATE INDEX idx_sentence_plan_id ON sentence_plan(id);
-
--- 9. Reset legacy `updated_at` so the upcoming LWW comparison in the SQS event handler
---    lets the first real event-driven snapshot win.
-UPDATE sentence_plan SET updated_at = '1970-01-01 00:00:00';
