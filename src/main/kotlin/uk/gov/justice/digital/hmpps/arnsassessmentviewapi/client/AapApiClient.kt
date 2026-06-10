@@ -23,6 +23,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineQue
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UserDetails
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UuidIdentifier
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @Component
@@ -85,6 +86,28 @@ class AapApiClient(
     }
   }
 
+  fun queryAt(assessmentUuid: UUID, asOf: LocalDateTime): AssessmentVersionQueryResult? {
+    // Truncate to ms and pad 999us mirrors the aap-ui's logic on the historic plan view.
+    val effective = asOf.truncatedTo(ChronoUnit.MILLIS).plus(999, ChronoUnit.MICROS)
+    log.info("Querying AAP for assessment {} as of {} (effective {})", assessmentUuid, asOf, effective)
+    return try {
+      executeQuery<AssessmentVersionQueryResult>(
+        AssessmentVersionQuery(
+          user = INGEST_USER,
+          assessmentIdentifier = UuidIdentifier(assessmentUuid),
+          timestamp = effective,
+        ),
+      )
+    } catch (ex: WebClientResponseException) {
+      if (ex.statusCode == HttpStatus.NOT_FOUND) {
+        log.info("AAP returned 404 for assessment {} as of {}", assessmentUuid, asOf)
+        null
+      } else {
+        throw ex
+      }
+    }
+  }
+
   fun queryTimeline(
     assessmentUuid: UUID,
     includeEventTypes: Set<String>? = null,
@@ -117,5 +140,6 @@ class AapApiClient(
   private companion object {
     private val log = LoggerFactory.getLogger(this::class.java)
     private val SYNC_USER = UserDetails(id = "view-api-sync", name = "View API Sync")
+    private val INGEST_USER = UserDetails(id = "view-api-ingest", name = "View API Snapshot Ingest")
   }
 }
