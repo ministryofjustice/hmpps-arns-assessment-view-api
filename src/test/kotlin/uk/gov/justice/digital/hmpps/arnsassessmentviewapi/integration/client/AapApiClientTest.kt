@@ -11,12 +11,12 @@ import org.springframework.test.context.TestPropertySource
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.AapApiClient
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.IdentifierType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UserDetails
-import java.time.LocalDateTime
-import java.util.UUID
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension.Companion.aapApi
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.HmppsAuthApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.HmppsAuthApiExtension.Companion.hmppsAuth
+import java.time.LocalDateTime
+import java.util.UUID
 
 @ExtendWith(HmppsAuthApiExtension::class, AapApiExtension::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
