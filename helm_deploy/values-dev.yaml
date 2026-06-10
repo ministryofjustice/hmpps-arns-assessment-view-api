@@ -2,8 +2,6 @@
 # Per environment values which override defaults in hmpps-arns-assessment-view-api/values.yaml
 
 generic-service:
-  serviceAccountName: hmpps-assess-risks-and-needs-assessment-view-api # This can be hoisted to values.yml later.
-
   ingress:
     host: arns-assessment-view-api-dev.hmpps.service.justice.gov.uk
 
@@ -23,10 +21,6 @@ generic-service:
     legacy-delius-test-az1-nat-gateway: 35.176.126.163/32
     legacy-delius-test-az2-nat-gateway: 35.178.162.73/32
     legacy-delius-test-az3-nat-gateway: 52.56.195.113/32
-
-  namespace_secrets:
-    sqs-arns-coordinator-queue:
-      HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME: "sqs_queue_name" # This can be hoisted to values.yml later.
 
 # CloudPlatform AlertManager receiver to route prometheus alerts to slack
 # See https://user-guide.cloud-platform.service.justice.gov.uk/documentation/monitoring-an-app/how-to-create-alarms.html#creating-your-own-custom-alerts
