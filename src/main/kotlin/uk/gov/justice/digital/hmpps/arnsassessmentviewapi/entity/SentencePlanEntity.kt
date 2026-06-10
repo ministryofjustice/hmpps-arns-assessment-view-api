@@ -15,6 +15,11 @@ import java.util.UUID
 @Table(name = "sentence_plan")
 class SentencePlanEntity(
   @Id
+  @Column(name = "snapshot_id", nullable = false)
+  val snapshotId: UUID = UUID.randomUUID(),
+
+  // Logical sentence plan identifier
+  @Column(name = "id", nullable = false)
   val id: UUID,
 
   @Column(name = "created_at", nullable = false)
@@ -30,7 +35,10 @@ class SentencePlanEntity(
   var oasysPk: String? = null,
 
   @Column(nullable = false)
-  var version: Int,
+  var version: Long,
+
+  @Column(name = "oasys_event")
+  var oasysEvent: String? = null,
 
   @Column(name = "region_code")
   var regionCode: String? = null,
@@ -49,4 +57,10 @@ class SentencePlanEntity(
   @OneToMany(mappedBy = "sentencePlan", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
   val goals: MutableList<GoalEntity> = mutableListOf(),
-)
+) {
+  companion object {
+    // Version for the single mutable "current state" row per entity. Versioned snapshots
+    // written on Oasys events use version > 0.
+    const val CURRENT_VERSION = -1L
+  }
+}
