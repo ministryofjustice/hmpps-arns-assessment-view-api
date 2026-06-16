@@ -15,6 +15,7 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.PlanAgreementEn
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanIdentifierEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.StepEntity
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.VersionPayload
 import java.time.Instant
 import java.util.UUID
 
@@ -48,6 +49,50 @@ class SentencePlanMapper {
       existing.oasysPk = association.oasysAssessmentPk
       existing.version = SentencePlanEntity.CURRENT_VERSION
       existing.regionCode = association.regionPrisonCode
+      existing.identifiers.clear()
+      existing.agreements.clear()
+      existing.goals.clear()
+    }
+
+    plan.identifiers.addAll(mapIdentifiers(source, plan))
+    plan.agreements.addAll(mapAgreements(source.collections, plan, authorship))
+    plan.goals.addAll(mapGoals(source.collections, plan, authorship))
+
+    return plan
+  }
+
+  /**
+   * SQS snapshot overload. Adds data from the SQS version payload.
+   */
+  fun toEntity(
+    source: AssessmentVersionQueryResult,
+    payload: VersionPayload,
+    existing: SentencePlanEntity?,
+    authorship: Map<UUID, ItemAuthorship>,
+  ): SentencePlanEntity {
+    val incrementedAt = payload.incrementedAt.toInstant()
+
+    val plan = existing ?: SentencePlanEntity(
+      id = source.assessmentUuid,
+      createdAt = source.createdAt.toInstant(),
+      updatedAt = incrementedAt,
+      lastSyncedAt = Instant.now(),
+      oasysPk = payload.association.oasysAssessmentPk,
+      version = payload.version,
+      oasysEvent = payload.oasysEvent.name,
+      regionCode = payload.association.regionPrisonCode,
+      deleted = payload.deleted,
+    )
+
+    if (existing != null) {
+      existing.createdAt = source.createdAt.toInstant()
+      existing.updatedAt = incrementedAt
+      existing.lastSyncedAt = Instant.now()
+      existing.oasysPk = payload.association.oasysAssessmentPk
+      existing.version = payload.version
+      existing.oasysEvent = payload.oasysEvent.name
+      existing.regionCode = payload.association.regionPrisonCode
+      existing.deleted = payload.deleted
       existing.identifiers.clear()
       existing.agreements.clear()
       existing.goals.clear()

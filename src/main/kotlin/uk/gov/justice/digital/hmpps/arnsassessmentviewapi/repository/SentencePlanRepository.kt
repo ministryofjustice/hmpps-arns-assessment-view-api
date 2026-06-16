@@ -17,10 +17,28 @@ interface SentencePlanRepository : JpaRepository<SentencePlanEntity, UUID> {
   @Query("SELECT sp FROM SentencePlanEntity sp JOIN sp.identifiers i WHERE i.type = :type AND i.value = :value AND sp.deleted = false")
   fun findByIdentifier(type: IdentifierType, value: String): List<SentencePlanEntity>
 
+  // The current state row (indicated by version -1) only 'deleted' when versionTo is null
+  // (i.e. open ended). When versionTo is set then latest is not marked 'deleted'
   @Modifying
   @Transactional
-  @Query("UPDATE SentencePlanEntity sp SET sp.deleted = :deleted WHERE sp.id = :id")
-  fun markDeletedForEntity(@Param("id") id: UUID, @Param("deleted") deleted: Boolean): Int
+  @Query(
+    """
+      UPDATE SentencePlanEntity sp
+      SET sp.deleted = :deleted
+      WHERE sp.id = :id
+        AND (
+          (sp.version >= :versionFrom
+            AND (:versionTo IS NULL OR sp.version < :versionTo))
+          OR (sp.version = -1 AND :versionTo IS NULL)
+        )
+    """,
+  )
+  fun markDeletedForRange(
+    @Param("id") id: UUID,
+    @Param("deleted") deleted: Boolean,
+    @Param("versionFrom") versionFrom: Long,
+    @Param("versionTo") versionTo: Long?,
+  ): Int
 
   // one row per (id, version).
   fun findByIdAndVersion(id: UUID, version: Long): Optional<SentencePlanEntity>

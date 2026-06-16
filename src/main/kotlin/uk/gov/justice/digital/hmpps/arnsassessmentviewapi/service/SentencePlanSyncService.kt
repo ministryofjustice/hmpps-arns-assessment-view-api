@@ -26,6 +26,7 @@ class SentencePlanSyncService(
   private val sentencePlanRepository: SentencePlanRepository,
   private val syncStateRepository: SyncStateRepository,
   private val mapper: SentencePlanMapper,
+  private val timelineAuthorshipFetcher: TimelineAuthorshipFetcher,
   private val transactionTemplate: TransactionTemplate,
 ) {
   private enum class UpsertOutcome { INSERTED, UPDATED }
@@ -181,11 +182,7 @@ class SentencePlanSyncService(
   // we don't want a Hikari connection held open for it.
   private fun upsert(assessment: AssessmentVersionQueryResult, association: EntityAssociationDetails): UpsertOutcome {
     // Timeline fetch runs outside the DB transaction, we don't want the connection held open for it.
-    val authorship = if (needsTimelineAuthorship(assessment)) {
-      fetchTimelineAuthorship(assessment.assessmentUuid)
-    } else {
-      emptyMap()
-    }
+    val authorship = timelineAuthorshipFetcher.fetchIfNeeded(assessment)
 
     // TransactionTemplate (not @Transactional) avoids the self-invocation proxy trap.
     val outcome: UpsertOutcome? = transactionTemplate.execute {
@@ -205,80 +202,12 @@ class SentencePlanSyncService(
     return outcome ?: error("Upsert transaction returned null for ${assessment.assessmentUuid}")
   }
 
-  // Goals (and their child steps) need authorship attribution alongside agreements and notes,
-  // so any non-empty agreements/goals collection triggers the timeline fetch. Empty plans skip it.
-  private fun needsTimelineAuthorship(assessment: AssessmentVersionQueryResult): Boolean = assessment.collections.any { collection ->
-    (collection.name == COLLECTION_PLAN_AGREEMENTS || collection.name == COLLECTION_GOALS) && collection.items.isNotEmpty()
-  }
-
-  // Two timeline queries: standard ADD events for createdBy on every item, custom GOAL_* rows for
-  // goal updatedBy. Only goals carry updatedBy aap-ui doesn't track per-step update authorship.
-  private fun fetchTimelineAuthorship(assessmentUuid: UUID): Map<UUID, ItemAuthorship> {
-    val createdBy = harvestCreatedBy(assessmentUuid)
-    val goalUpdatedBy = harvestGoalUpdatedBy(assessmentUuid)
-    return createdBy.mapValues { (itemUuid, creator) ->
-      ItemAuthorship(createdBy = creator, updatedBy = goalUpdatedBy[itemUuid])
-    }
-  }
-
-  private fun harvestCreatedBy(assessmentUuid: UUID): Map<UUID, UUID> {
-    val createdBy = mutableMapOf<UUID, UUID>()
-    var pageNumber = 0
-    while (true) {
-      val page = aapApiClient.queryTimeline(
-        assessmentUuid = assessmentUuid,
-        includeEventTypes = setOf(ADD_EVENT_TYPE),
-        pageNumber = pageNumber,
-        pageSize = PAGE_SIZE,
-      )
-      page.timeline.forEach { item ->
-        val itemUuid = (item.data[TIMELINE_DATA_ITEM_UUID] as? String)?.let(UUID::fromString) ?: return@forEach
-        createdBy[itemUuid] = item.user.id
-      }
-      if (page.timeline.isEmpty() || pageNumber >= page.pageInfo.totalPages - 1) break
-      pageNumber++
-    }
-    return createdBy
-  }
-
-  private fun harvestGoalUpdatedBy(assessmentUuid: UUID): Map<UUID, UUID> {
-    data class Latest(val timestamp: LocalDateTime, val user: UUID)
-    val latest = mutableMapOf<UUID, Latest>()
-    var pageNumber = 0
-    while (true) {
-      val page = aapApiClient.queryTimeline(
-        assessmentUuid = assessmentUuid,
-        includeCustomTypes = GOAL_UPDATE_CUSTOM_TYPES,
-        pageNumber = pageNumber,
-        pageSize = PAGE_SIZE,
-      )
-      page.timeline.forEach { item ->
-        val customData = item.customData ?: return@forEach
-        val goalUuid = (customData[CUSTOM_DATA_GOAL_UUID] as? String)?.let(UUID::fromString) ?: return@forEach
-        // Compare by timestamp
-        val current = latest[goalUuid]
-        if (current == null || item.timestamp.isAfter(current.timestamp)) {
-          latest[goalUuid] = Latest(item.timestamp, item.user.id)
-        }
-      }
-      if (page.timeline.isEmpty() || pageNumber >= page.pageInfo.totalPages - 1) break
-      pageNumber++
-    }
-    return latest.mapValues { (_, l) -> l.user }
-  }
-
   private fun WebClientResponseException.isLookbackGuardTripped(): Boolean = statusCode.is4xxClientError && responseBodyAsString.contains(LOOKBACK_GUARD_MARKER)
 
   private companion object {
     private val log = LoggerFactory.getLogger(this::class.java)
     private const val ASSESSMENT_TYPE = SENTENCE_PLAN_ASSESSMENT_TYPE
     private const val PAGE_SIZE = 50
-    private const val ADD_EVENT_TYPE = "CollectionItemAddedEvent"
-    private val GOAL_UPDATE_CUSTOM_TYPES = setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")
-    private const val TIMELINE_DATA_ITEM_UUID = "collectionItemUuid"
-    private const val CUSTOM_DATA_GOAL_UUID = "goalUuid"
-    private const val COLLECTION_GOALS = "GOALS"
-    private const val COLLECTION_PLAN_AGREEMENTS = "PLAN_AGREEMENTS"
     private const val LOOKBACK_GUARD_MARKER = "cannot be older than"
     private const val SYNC_STATE_KEY = "sentence_plan"
 
