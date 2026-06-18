@@ -5,6 +5,6 @@ ALTER TABLE step ADD COLUMN description_hash   VARCHAR(64) NOT NULL DEFAULT '';
 -- Backfill from existing plaintext. sha256() is built in to Postgres
 UPDATE step
 SET description_length = length(description),
-    description_hash   = encode(sha256(description::bytea), 'hex');
+    description_hash   = encode(sha256(convert_to(description, 'UTF8')), 'hex');
 
 ALTER TABLE step DROP COLUMN description;
