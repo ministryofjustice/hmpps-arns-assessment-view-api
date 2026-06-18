@@ -207,7 +207,8 @@ class SentencePlanMapper {
     return StepEntity(
       id = item.uuid,
       goal = goal,
-      description = description,
+      descriptionLength = description.length,
+      descriptionHash = sha256Hex(description),
       actor = actor,
       status = status,
       statusDate = item.properties.asString("status_date")?.toInstantOrNull(),

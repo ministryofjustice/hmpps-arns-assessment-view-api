@@ -22,8 +22,11 @@ class StepEntity(
   @JoinColumn(name = "goal_id", nullable = false)
   val goal: GoalEntity,
 
-  @Column(nullable = false)
-  val description: String,
+  @Column(name = "description_length", nullable = false)
+  val descriptionLength: Int,
+
+  @Column(name = "description_hash", nullable = false)
+  val descriptionHash: String,
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
