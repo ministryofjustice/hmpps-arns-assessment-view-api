@@ -692,6 +692,21 @@ class SentencePlanMapperTest {
   inner class MapSteps {
 
     @Test
+    fun `step description is stored only as length and SHA-256 hash, never as raw text`() {
+      // GIVEN a step with sensitive description text
+      val rawDescription = "Sensitive personally identifying step text"
+      val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(description = rawDescription)))))))
+
+      // WHEN mapped
+      val plan = mapper.toEntity(source, association(), existing = null, authorship = authorshipFor(source))
+
+      // THEN the entity carries hash + length
+      val step = plan.goals.single().steps.single()
+      assertThat(step.descriptionLength).isEqualTo(rawDescription.length)
+      assertThat(step.descriptionHash).isEqualTo(sha256Hex(rawDescription))
+    }
+
+    @Test
     fun `produces empty steps when STEPS collection is absent on the goal`() {
       // GIVEN a goal with no nested STEPS collection
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = emptyList())))))
