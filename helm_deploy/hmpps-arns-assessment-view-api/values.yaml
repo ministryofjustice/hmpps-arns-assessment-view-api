@@ -43,6 +43,9 @@ generic-service:
     sqs-arns-coordinator-queue:
       HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME: "sqs_queue_name"
 
+    sqs-arns-coordinator-dlq:
+      HMPPS_SQS_QUEUES_COORDINATOR_DLQ_NAME: "sqs_queue_name"
+
   allowlist:
     groups:
       - internal

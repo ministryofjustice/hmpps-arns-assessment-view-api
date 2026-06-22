@@ -39,9 +39,6 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.agreementsCol
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.assessment
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.association
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.emptyTimelinePage
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.goalItem
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.goalsCollection
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.noteItem
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.fixtures.page
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePlanRepository
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SyncStateRepository
@@ -63,6 +60,7 @@ class SentencePlanSyncServiceTest {
   private val repository: SentencePlanRepository = mock()
   private val syncStateRepository: SyncStateRepository = mock()
   private val mapper: SentencePlanMapper = mock()
+  private val timelineAuthorshipFetcher: TimelineAuthorshipFetcher = mock()
   private val transactionTemplate: TransactionTemplate = mock()
 
   private val service = SentencePlanSyncService(
@@ -71,6 +69,7 @@ class SentencePlanSyncServiceTest {
     repository,
     syncStateRepository,
     mapper,
+    timelineAuthorshipFetcher,
     transactionTemplate,
   )
 
@@ -83,7 +82,7 @@ class SentencePlanSyncServiceTest {
     whenever(syncStateRepository.findById(SYNC_STATE_KEY)).thenReturn(Optional.empty())
     whenever(syncStateRepository.save(any<SyncStateEntity>())).doAnswer { it.arguments[0] as SyncStateEntity }
     whenever(aapApiClient.queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())).thenReturn(emptyTimelinePage())
-    whenever(mapper.toEntity(any(), any(), anyOrNull(), any())).thenAnswer {
+    whenever(mapper.toEntity(any(), any<EntityAssociationDetails>(), anyOrNull(), any())).thenAnswer {
       val source = it.arguments[0] as AssessmentVersionQueryResult
       stubEntity(source.assessmentUuid)
     }
@@ -340,7 +339,7 @@ class SentencePlanSyncServiceTest {
       val ordered = inOrder(repository, mapper)
       ordered.verify(repository).findByIdAndVersion(eq(uuid), any())
       ordered.verify(repository).saveAndFlush(check<SentencePlanEntity> { assertThat(it).isSameAs(existing) })
-      ordered.verify(mapper).toEntity(any(), any(), eq(existing), any())
+      ordered.verify(mapper).toEntity(any(), any<EntityAssociationDetails>(), eq(existing), any())
       ordered.verify(repository).save(any<SentencePlanEntity>())
     }
 
@@ -377,207 +376,6 @@ class SentencePlanSyncServiceTest {
     }
   }
 
-  // ----------------------------------------------------------------------------------------------
-  @Nested
-  inner class TimelineFetching {
-
-    @Test
-    fun `does not query timeline when the assessment has no agreements and no goal notes`() {
-      // GIVEN an assessment with neither agreements nor goal notes
-      val uuid = UUID.randomUUID()
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any()))
-        .thenReturn(page(listOf(assessment(uuid))))
-      stubAssociationsFor(uuid)
-
-      // WHEN the service syncs
-      service.sync()
-
-      // THEN we don't call for the timeline call when there's no authorship to attribute
-      verify(aapApiClient, never()).queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())
-    }
-
-    @Test
-    fun `queries timeline when the assessment has at least one agreement`() {
-      // GIVEN an assessment with one agreement
-      val uuid = UUID.randomUUID()
-      val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem()))))
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
-      stubAssociationsFor(uuid)
-
-      // WHEN the service syncs
-      service.sync()
-
-      // THEN the timeline is queried twice once for createdBy (ADD events) and once for goal updatedBy (custom GOAL_* rows)
-      verify(aapApiClient, times(2)).queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())
-    }
-
-    @Test
-    fun `queries timeline when the assessment has at least one goal note`() {
-      // GIVEN an assessment with a goal containing notes
-      val uuid = UUID.randomUUID()
-      val source = assessment(
-        uuid,
-        collections = listOf(goalsCollection(listOf(goalItem(notes = listOf(noteItem()))))),
-      )
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
-      stubAssociationsFor(uuid)
-
-      // WHEN the service syncs
-      service.sync()
-
-      // THEN the timeline is queried twice (createdBy + goal updatedBy harvesters)
-      verify(aapApiClient, times(2)).queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())
-    }
-
-    @Test
-    fun `stops paginating timeline early when a page is empty`() {
-      // GIVEN a totalPages=10 hint but the first page is empty
-      val uuid = UUID.randomUUID()
-      val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem()))))
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
-      stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(0), any()))
-        .thenReturn(timelinePageWithItems(uuid, items = emptyMap(), pageNumber = 0, totalPages = 10))
-
-      // WHEN the service syncs
-      service.sync()
-
-      // THEN only the first page is fetched per harvester (createdBy + goal updatedBy = 2 calls total)
-      verify(aapApiClient, times(2)).queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())
-    }
-
-    @Test
-    fun `accumulates creator entries across multiple timeline pages`() {
-      // GIVEN an assessment whose timeline spans two pages, each contributing one creator entry
-      val uuid = UUID.randomUUID()
-      val agreementUuid = UUID.randomUUID()
-      val noteUuid = UUID.randomUUID()
-      val agreementCreator = UUID.randomUUID()
-      val noteCreator = UUID.randomUUID()
-      val source = assessment(
-        uuid,
-        collections = listOf(
-          agreementsCollection(listOf(agreementItem(uuid = agreementUuid))),
-          goalsCollection(listOf(goalItem(notes = listOf(noteItem(uuid = noteUuid))))),
-        ),
-      )
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
-      stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(0), any()))
-        .thenReturn(timelinePageWithItems(uuid, items = mapOf(agreementUuid to agreementCreator), pageNumber = 0, totalPages = 2))
-      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(1), any()))
-        .thenReturn(timelinePageWithItems(uuid, items = mapOf(noteUuid to noteCreator), pageNumber = 1, totalPages = 2))
-
-      // WHEN the service syncs
-      service.sync()
-
-      // THEN the mapper receives a creator map containing entries from BOTH timeline pages
-      verify(mapper).toEntity(
-        any(),
-        any(),
-        anyOrNull(),
-        check<Map<UUID, ItemAuthorship>> {
-          assertThat(it).containsExactlyInAnyOrderEntriesOf(
-            mapOf(
-              agreementUuid to ItemAuthorship(agreementCreator, null),
-              noteUuid to ItemAuthorship(noteCreator, null),
-            ),
-          )
-        },
-      )
-    }
-
-    @Test
-    fun `silently skips a timeline item that has no collectionItemUuid in its data`() {
-      // GIVEN a timeline page with one valid item and one whose data map lacks the collectionItemUuid key
-      val uuid = UUID.randomUUID()
-      val agreementUuid = UUID.randomUUID()
-      val agreementCreator = UUID.randomUUID()
-      val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid)))))
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
-      stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())).thenReturn(
-        TimelineQueryResult(
-          timeline = listOf(
-            timelineItem(uuid, agreementUuid, agreementCreator),
-            timelineItem(uuid, dataOverride = mapOf("someOtherKey" to "value")),
-          ),
-          pageInfo = PageInfo(0, 1),
-        ),
-      )
-
-      // WHEN the service syncs
-      service.sync()
-
-      // THEN only the valid creator reaches the mapper, the malformed entry is dropped silently
-      verify(mapper).toEntity(
-        any(),
-        any(),
-        anyOrNull(),
-        check<Map<UUID, ItemAuthorship>> {
-          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
-        },
-      )
-    }
-
-    @Test
-    fun `silently skips a timeline item whose collectionItemUuid is not a String`() {
-      // GIVEN a timeline page with one valid item and one whose collectionItemUuid is the wrong shape (Int)
-      val uuid = UUID.randomUUID()
-      val agreementUuid = UUID.randomUUID()
-      val agreementCreator = UUID.randomUUID()
-      val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid)))))
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
-      stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())).thenReturn(
-        TimelineQueryResult(
-          timeline = listOf(
-            timelineItem(uuid, agreementUuid, agreementCreator),
-            timelineItem(uuid, dataOverride = mapOf("collectionItemUuid" to 12345)),
-          ),
-          pageInfo = PageInfo(0, 1),
-        ),
-      )
-
-      // WHEN the service syncs
-      service.sync()
-
-      // THEN the wrong entry is silently dropped
-      verify(mapper).toEntity(
-        any(),
-        any(),
-        anyOrNull(),
-        check<Map<UUID, ItemAuthorship>> {
-          assertThat(it).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
-        },
-      )
-    }
-
-    @Test
-    fun `fails the assessment when collectionItemUuid is a malformed UUID string`() {
-      // GIVEN a timeline whose item carries a non-UUID string in collectionItemUuid
-      val uuid = UUID.randomUUID()
-      val agreementUuid = UUID.randomUUID()
-      val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem(uuid = agreementUuid)))))
-      whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
-      stubAssociationsFor(uuid)
-      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any())).thenReturn(
-        TimelineQueryResult(
-          timeline = listOf(timelineItem(uuid, dataOverride = mapOf("collectionItemUuid" to "not-a-uuid"))),
-          pageInfo = PageInfo(0, 1),
-        ),
-      )
-
-      // WHEN the service syncs (UUID.fromString throws, runCatching catches it)
-      service.sync()
-
-      // THEN no save happens , the malformed UUID poisons this assessment without halting the batch
-      verify(repository, never()).save(any<SentencePlanEntity>())
-      verify(mapper, never()).toEntity(any(), any(), anyOrNull(), any())
-    }
-  }
-
-  // ----------------------------------------------------------------------------------------------
   @Nested
   inner class MapperHandoff {
 
@@ -591,8 +389,8 @@ class SentencePlanSyncServiceTest {
       val assoc = defaultAssociation()
       whenever(aapApiClient.queryModifiedSince(any(), any(), anyOrNull(), any())).thenReturn(page(listOf(source)))
       whenever(coordinatorApiClient.getLatestAssociationDetails(any())).thenReturn(mapOf(uuid to assoc))
-      whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), any(), any()))
-        .thenReturn(timelinePageWithItems(uuid, items = mapOf(agreementUuid to agreementCreator)))
+      whenever(timelineAuthorshipFetcher.fetchIfNeeded(any()))
+        .thenReturn(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
 
       // WHEN the service syncs
       service.sync()
@@ -622,7 +420,7 @@ class SentencePlanSyncServiceTest {
 
       // THEN the mapper receives that same instance as 'existing'
       val captor = argumentCaptor<SentencePlanEntity>()
-      verify(mapper).toEntity(any(), any(), captor.capture(), any())
+      verify(mapper).toEntity(any(), any<EntityAssociationDetails>(), captor.capture(), any())
       assertThat(captor.firstValue).isSameAs(existing)
     }
 
@@ -639,7 +437,7 @@ class SentencePlanSyncServiceTest {
 
       // THEN the mapper is told there's no existing entity
       val captor = argumentCaptor<SentencePlanEntity?>()
-      verify(mapper).toEntity(any(), any(), captor.capture(), any())
+      verify(mapper).toEntity(any(), any<EntityAssociationDetails>(), captor.capture(), any())
       assertThat(captor.firstValue).isNull()
     }
   }

@@ -119,4 +119,5 @@ hmpps:
     queues:
       coordinator:
         queue-name: ${HMPPS_SQS_QUEUES_COORDINATOR_QUEUE_NAME}
+        dlq-name: ${HMPPS_SQS_QUEUES_COORDINATOR_DLQ_NAME:}
         error-visibility-timeout: 30
