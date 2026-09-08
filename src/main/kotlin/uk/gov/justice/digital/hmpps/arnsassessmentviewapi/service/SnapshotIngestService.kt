@@ -41,13 +41,18 @@ class SnapshotIngestService(
     val authorship = timelineAuthorshipFetcher.fetchIfNeeded(assessment)
 
     transactionTemplate.execute {
-      if (existing != null) {
-        existing.identifiers.clear()
-        existing.agreements.clear()
-        existing.goals.clear()
-        sentencePlanRepository.saveAndFlush(existing)
+      // Re-read inside the transaction: `existing` was loaded by a session that has since closed,
+      // so clearing its lazy collections would throw. Mirrors SentencePlanSyncService.upsert.
+      val managed = sentencePlanRepository.findByIdAndVersion(envelope.entityUuid, payload.version).orElse(null)
+      if (managed != null) {
+        managed.identifiers.clear()
+        managed.agreements.clear()
+        managed.goals.clear()
+
+        // Flushing after clear() keeps the unique constraint on (sentence_plan_id, type, value) from tripping.
+        sentencePlanRepository.saveAndFlush(managed)
       }
-      val entity = mapper.toEntity(assessment, payload, existing, authorship)
+      val entity = mapper.toEntity(assessment, payload, managed, authorship)
       sentencePlanRepository.save(entity)
     }
 

@@ -11,6 +11,9 @@ generic-service:
     AAP_API_BASE_URL: "https://arns-assessment-platform-api.hmpps.service.justice.gov.uk"
     SYNC_ENABLED: "true"
     SYNC_INTERVAL_MINUTES: 5
+    # Both are required: the profile registers the queue, the flag creates the listener bean.
+    SPRING_PROFILES_ACTIVE: "coordinator-queue"
+    COORDINATOR_EVENT_LISTENER_ENABLED: "true"
 
   allowlist:
     delius-prod-az1-nat-gateway: 52.56.115.146/32
