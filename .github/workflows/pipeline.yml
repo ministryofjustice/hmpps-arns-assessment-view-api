@@ -93,3 +93,4 @@ jobs:
       environment: 'prod'
       app_version: '${{ needs.build.outputs.app_version }}'
       slack_notification: 'false' # if 'true', it needs a valid PROD_RELEASES_SLACK_CHANNEL variable to be set
+      helm_additional_args: '--force-conflicts'
