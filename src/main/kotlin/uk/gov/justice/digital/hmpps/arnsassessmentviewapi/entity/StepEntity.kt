@@ -28,6 +28,9 @@ class StepEntity(
   @Column(name = "description_hash", nullable = false)
   val descriptionHash: String,
 
+  @Column(name = "description", nullable = false)
+  val description: String,
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   val actor: ActorType,

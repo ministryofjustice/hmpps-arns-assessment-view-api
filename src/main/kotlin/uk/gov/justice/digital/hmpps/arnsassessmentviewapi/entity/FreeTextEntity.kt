@@ -45,4 +45,7 @@ class FreeTextEntity(
 
   @Column(name = "text_hash")
   val textHash: String? = null,
+
+  @Column(name = "text")
+  val text: String? = null,
 )
