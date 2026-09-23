@@ -14,6 +14,8 @@ generic-service:
     SPRINGDOC_SWAGGER-UI_ENABLED: "true"
     SYNC_ENABLED: "true"
     SYNC_INTERVAL_MINUTES: 5
+    SPRING_PROFILES_ACTIVE: "coordinator-queue"
+    COORDINATOR_EVENT_LISTENER_ENABLED: "true"
 
   allowlist:
     legacy-delius-test-az1-nat-gateway: 35.176.126.163/32
