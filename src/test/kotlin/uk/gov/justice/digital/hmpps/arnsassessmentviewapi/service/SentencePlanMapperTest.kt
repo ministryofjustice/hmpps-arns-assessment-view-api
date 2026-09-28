@@ -338,7 +338,7 @@ class SentencePlanMapperTest {
       "details_could_not_answer, AGREEMENT_DETAILS",
       "notes, AGREEMENT_NOTES",
     )
-    fun `agreement answer key produces a free-text with the matching type, length, and SHA-256 hash`(
+    fun `agreement answer key produces a free-text with the matching type, length, and SHA-256 hash, and non hashed text`(
       answerKey: String,
       expectedTypeName: String,
     ) {
@@ -369,6 +369,7 @@ class SentencePlanMapperTest {
       assertThat(ft.type).isEqualTo(FreeTextType.valueOf(expectedTypeName))
       assertThat(ft.textLength).isEqualTo(text.length)
       assertThat(ft.textHash).isEqualTo(sha256Hex(text))
+      assertThat(ft.text).isEqualTo(text)
     }
 
     @Test
@@ -673,7 +674,7 @@ class SentencePlanMapperTest {
     }
 
     @Test
-    fun `goal title is stored only as length and SHA-256 hash, never as raw text`() {
+    fun `goal title is stored as length and SHA-256 hash as well as raw text`() {
       // GIVEN a goal with sensitive title text
       val rawTitle = "Sensitive personally-identifying goal text"
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(title = rawTitle)))))
@@ -685,6 +686,7 @@ class SentencePlanMapperTest {
       val goal = plan.goals.single()
       assertThat(goal.titleLength).isEqualTo(rawTitle.length)
       assertThat(goal.titleHash).isEqualTo(sha256Hex(rawTitle))
+      assertThat(goal.title).isEqualTo(rawTitle)
     }
   }
 
@@ -692,7 +694,7 @@ class SentencePlanMapperTest {
   inner class MapSteps {
 
     @Test
-    fun `step description is stored only as length and SHA-256 hash, never as raw text`() {
+    fun `step description is stored as length and SHA-256 hash as well as raw text`() {
       // GIVEN a step with sensitive description text
       val rawDescription = "Sensitive personally identifying step text"
       val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(steps = listOf(stepItem(description = rawDescription)))))))
@@ -704,6 +706,7 @@ class SentencePlanMapperTest {
       val step = plan.goals.single().steps.single()
       assertThat(step.descriptionLength).isEqualTo(rawDescription.length)
       assertThat(step.descriptionHash).isEqualTo(sha256Hex(rawDescription))
+      assertThat(step.description).isEqualTo(rawDescription)
     }
 
     @Test
@@ -920,7 +923,7 @@ class SentencePlanMapperTest {
     }
 
     @Test
-    fun `note text is stored as length and SHA-256 hash, not raw text`() {
+    fun `note text is stored as length and SHA-256 hash and raw text`() {
       // GIVEN a note with sensitive text
       val text = "Privately disclosed sensitive information"
       val noteUuid = UUID.randomUUID()
@@ -936,6 +939,7 @@ class SentencePlanMapperTest {
       val ft = plan.goals.single().freeTexts.single()
       assertThat(ft.textLength).isEqualTo(text.length)
       assertThat(ft.textHash).isEqualTo(sha256Hex(text))
+      assertThat(ft.text).isEqualTo(text)
     }
 
     @Test

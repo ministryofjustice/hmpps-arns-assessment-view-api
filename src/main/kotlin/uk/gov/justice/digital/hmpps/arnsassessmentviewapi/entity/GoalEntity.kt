@@ -32,6 +32,9 @@ class GoalEntity(
   @Column(name = "title_hash", nullable = false)
   val titleHash: String,
 
+  @Column(name = "title", nullable = false)
+  val title: String,
+
   @Enumerated(EnumType.STRING)
   @Column(name = "area_of_need", nullable = false)
   val areaOfNeed: CriminogenicNeed,
