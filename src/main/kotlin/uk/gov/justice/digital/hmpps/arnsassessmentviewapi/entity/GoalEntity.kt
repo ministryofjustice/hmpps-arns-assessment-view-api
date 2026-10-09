@@ -75,4 +75,7 @@ class GoalEntity(
   @OneToMany(mappedBy = "goal", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
   val steps: MutableList<StepEntity> = mutableListOf(),
+
+  @Column(name = "created_by_user_name")
+  val createdByUserName: String? = null,
 )

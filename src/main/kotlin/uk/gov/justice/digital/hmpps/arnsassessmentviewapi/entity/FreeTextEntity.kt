@@ -48,4 +48,7 @@ class FreeTextEntity(
 
   @Column(name = "text")
   val text: String? = null,
+
+  @Column(name = "created_by_user_name")
+  val createdByUserName: String? = null,
 )

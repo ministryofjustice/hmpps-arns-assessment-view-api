@@ -17,10 +17,10 @@ class TimelineAuthorshipFetcher(
 
   fun fetchIfNeeded(assessment: AssessmentVersionQueryResult): Map<UUID, ItemAuthorship> {
     if (!needsTimelineAuthorship(assessment)) return emptyMap()
-    val createdBy = harvestCreatedBy(assessment.assessmentUuid)
+    val creators = harvestCreatedBy(assessment.assessmentUuid)
     val goalUpdatedBy = harvestGoalUpdatedBy(assessment.assessmentUuid)
-    return createdBy.mapValues { (itemUuid, creator) ->
-      ItemAuthorship(createdBy = creator, updatedBy = goalUpdatedBy[itemUuid])
+    return creators.mapValues { (itemUuid, creator) ->
+      ItemAuthorship(createdBy = creator.id, updatedBy = goalUpdatedBy[itemUuid], createdByName = creator.name)
     }
   }
 
@@ -29,8 +29,8 @@ class TimelineAuthorshipFetcher(
     (collection.name == COLLECTION_PLAN_AGREEMENTS || collection.name == COLLECTION_GOALS) && collection.items.isNotEmpty()
   }
 
-  private fun harvestCreatedBy(assessmentUuid: UUID): Map<UUID, UUID> {
-    val createdBy = mutableMapOf<UUID, UUID>()
+  private fun harvestCreatedBy(assessmentUuid: UUID): Map<UUID, Creator> {
+    val createdBy = mutableMapOf<UUID, Creator>()
     var pageNumber = 0
     while (true) {
       val page = aapApiClient.queryTimeline(
@@ -41,7 +41,7 @@ class TimelineAuthorshipFetcher(
       )
       page.timeline.forEach { item ->
         val itemUuid = (item.data[TIMELINE_DATA_ITEM_UUID] as? String)?.let(UUID::fromString) ?: return@forEach
-        createdBy[itemUuid] = item.user.id
+        createdBy[itemUuid] = Creator(item.user.id, item.user.name)
       }
       if (page.timeline.isEmpty() || pageNumber >= page.pageInfo.totalPages - 1) break
       pageNumber++
@@ -75,6 +75,8 @@ class TimelineAuthorshipFetcher(
   }
 
   private companion object {
+    private data class Creator(val id: UUID, val name: String)
+
     private const val PAGE_SIZE = 50
     private const val ADD_EVENT_TYPE = "CollectionItemAddedEvent"
     private val GOAL_UPDATE_CUSTOM_TYPES = setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")

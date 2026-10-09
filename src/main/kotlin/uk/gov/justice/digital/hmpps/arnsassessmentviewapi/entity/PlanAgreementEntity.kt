@@ -41,4 +41,7 @@ class PlanAgreementEntity(
   @OneToMany(mappedBy = "planAgreement", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
   @BatchSize(size = 25)
   val freeTexts: MutableList<FreeTextEntity> = mutableListOf(),
+
+  @Column(name = "created_by_user_name")
+  val createdByUserName: String? = null,
 )

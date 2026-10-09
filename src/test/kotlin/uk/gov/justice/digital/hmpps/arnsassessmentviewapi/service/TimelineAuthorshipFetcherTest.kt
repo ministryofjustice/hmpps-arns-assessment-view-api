@@ -93,18 +93,64 @@ class TimelineAuthorshipFetcherTest {
       ),
     )
     whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(0), any()))
-      .thenReturn(timelinePageWithItems(uuid, items = mapOf(agreementUuid to agreementCreator), pageNumber = 0, totalPages = 2))
+      .thenReturn(timelinePageWithItems(uuid, items = mapOf(agreementUuid to (agreementCreator to "Agreement creator")), pageNumber = 0, totalPages = 2))
     whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(1), any()))
-      .thenReturn(timelinePageWithItems(uuid, items = mapOf(noteUuid to noteCreator), pageNumber = 1, totalPages = 2))
+      .thenReturn(timelinePageWithItems(uuid, items = mapOf(noteUuid to (noteCreator to "Note creator")), pageNumber = 1, totalPages = 2))
 
     val result = fetcher.fetchIfNeeded(source)
 
     assertThat(result).containsExactlyInAnyOrderEntriesOf(
       mapOf(
-        agreementUuid to ItemAuthorship(agreementCreator, null),
-        noteUuid to ItemAuthorship(noteCreator, null),
+        agreementUuid to ItemAuthorship(agreementCreator, null, "Agreement creator"),
+        noteUuid to ItemAuthorship(noteCreator, null, "Note creator"),
       ),
     )
+  }
+
+  @Test
+  fun `creator name and UUID come from the creation entry while latest goal updater remains independent`() {
+    val uuid = UUID.randomUUID()
+    val goalUuid = UUID.randomUUID()
+    val creator = UUID.randomUUID()
+    val earlierUpdater = UUID.randomUUID()
+    val latestUpdater = UUID.randomUUID()
+    val source = assessment(uuid, collections = listOf(goalsCollection(listOf(goalItem(uuid = goalUuid)))))
+    val creation = timelineItem(uuid, goalUuid, creator, name = "Creator")
+    val updates = listOf(
+      updateTimelineItem(uuid, goalUuid, earlierUpdater, "2026-01-01T10:00:00", "Earlier updater"),
+      updateTimelineItem(uuid, goalUuid, latestUpdater, "2026-01-02T10:00:00", "Latest updater"),
+    )
+    whenever(aapApiClient.queryTimeline(eq(uuid), eq(setOf("CollectionItemAddedEvent")), anyOrNull(), eq(0), any()))
+      .thenReturn(TimelineQueryResult(listOf(creation), PageInfo(0, 1)))
+    whenever(
+      aapApiClient.queryTimeline(
+        eq(uuid),
+        anyOrNull(),
+        eq(setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")),
+        eq(0),
+        any(),
+      ),
+    ).thenReturn(TimelineQueryResult(updates, PageInfo(0, 1)))
+
+    val authorship = fetcher.fetchIfNeeded(source).getValue(goalUuid)
+
+    assertThat(authorship).isEqualTo(ItemAuthorship(creator, latestUpdater, "Creator"))
+  }
+
+  @Test
+  fun `blank creator name is preserved with its UUID`() {
+    val uuid = UUID.randomUUID()
+    val itemUuid = UUID.randomUUID()
+    val creator = UUID.randomUUID()
+    val source = assessment(uuid, collections = listOf(agreementsCollection(listOf(agreementItem(uuid = itemUuid)))))
+    whenever(aapApiClient.queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())).thenReturn(
+      TimelineQueryResult(listOf(timelineItem(uuid, itemUuid, creator, name = "")), PageInfo(0, 1)),
+    )
+
+    val authorship = fetcher.fetchIfNeeded(source).getValue(itemUuid)
+
+    assertThat(authorship.createdBy).isEqualTo(creator)
+    assertThat(authorship.createdByName).isEmpty()
   }
 
   @Test
@@ -125,7 +171,7 @@ class TimelineAuthorshipFetcherTest {
 
     val result = fetcher.fetchIfNeeded(source)
 
-    assertThat(result).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
+    assertThat(result).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null, "User")))
   }
 
   @Test
@@ -146,7 +192,7 @@ class TimelineAuthorshipFetcherTest {
 
     val result = fetcher.fetchIfNeeded(source)
 
-    assertThat(result).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null)))
+    assertThat(result).containsExactlyEntriesOf(mapOf(agreementUuid to ItemAuthorship(agreementCreator, null, "User")))
   }
 
   @Test
@@ -165,11 +211,11 @@ class TimelineAuthorshipFetcherTest {
 
   private fun timelinePageWithItems(
     assessmentUuid: UUID,
-    items: Map<UUID, UUID>,
+    items: Map<UUID, Pair<UUID, String>>,
     pageNumber: Int = 0,
     totalPages: Int = 1,
   ): TimelineQueryResult = TimelineQueryResult(
-    timeline = items.map { (itemUuid, userUuid) -> timelineItem(assessmentUuid, itemUuid, userUuid) },
+    timeline = items.map { (itemUuid, creator) -> timelineItem(assessmentUuid, itemUuid, creator.first, name = creator.second) },
     pageInfo = PageInfo(pageNumber = pageNumber, totalPages = totalPages),
   )
 
@@ -178,12 +224,29 @@ class TimelineAuthorshipFetcherTest {
     itemUuid: UUID = UUID.randomUUID(),
     userUuid: UUID = UUID.randomUUID(),
     dataOverride: Map<String, Any>? = null,
+    name: String = "User",
   ): TimelineItem = TimelineItem(
     uuid = UUID.randomUUID(),
     timestamp = LocalDateTime.now(),
-    user = TimelineUser(id = userUuid, name = "User"),
+    user = TimelineUser(id = userUuid, name = name),
     assessment = assessmentUuid,
     event = "CollectionItemAddedEvent",
     data = dataOverride ?: mapOf("collectionItemUuid" to itemUuid.toString()),
+  )
+
+  private fun updateTimelineItem(
+    assessmentUuid: UUID,
+    goalUuid: UUID,
+    userUuid: UUID,
+    timestamp: String,
+    name: String,
+  ): TimelineItem = TimelineItem(
+    uuid = UUID.randomUUID(),
+    timestamp = LocalDateTime.parse(timestamp),
+    user = TimelineUser(id = userUuid, name = name),
+    assessment = assessmentUuid,
+    event = "CollectionItemPropertiesUpdatedEvent",
+    customType = "GOAL_UPDATED",
+    customData = mapOf("goalUuid" to goalUuid.toString()),
   )
 }

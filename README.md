@@ -13,6 +13,8 @@ A Spring Boot Kotlin service that maintains a PostgreSQL copy of sentence plan d
 
 The sync mode calls the Coordinator API to resolve OASys assessment PKs for each sentence plan, and queries AAP-API for assessments modified since the last sync window.
 
+Creator display names are stored from the user name supplied with each AAP timeline creation event at ingestion time. User UUIDs remain the identity keys; display names are labels and are not guaranteed to represent the name used when the action originally occurred. Existing rows remain null until explicitly reprocessed. Incremental sync is not a complete backfill, and populating names on existing immutable snapshots requires a separate backfill decision.
+
 ## Local Development
 
 ### Prerequisites

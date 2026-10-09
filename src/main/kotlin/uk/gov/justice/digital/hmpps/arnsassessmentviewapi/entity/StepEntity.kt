@@ -47,4 +47,7 @@ class StepEntity(
 
   @Column(name = "created_by_user_id", nullable = false)
   val createdByUserId: UUID,
+
+  @Column(name = "created_by_user_name")
+  val createdByUserName: String? = null,
 )

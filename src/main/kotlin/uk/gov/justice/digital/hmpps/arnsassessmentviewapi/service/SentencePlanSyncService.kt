@@ -216,4 +216,8 @@ class SentencePlanSyncService(
   }
 }
 
-data class ItemAuthorship(val createdBy: UUID, val updatedBy: UUID?)
+data class ItemAuthorship(
+  val createdBy: UUID,
+  val updatedBy: UUID?,
+  val createdByName: String? = null,
+)

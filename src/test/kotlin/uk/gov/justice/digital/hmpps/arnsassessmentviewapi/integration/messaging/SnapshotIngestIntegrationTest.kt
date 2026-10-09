@@ -11,6 +11,8 @@ import org.springframework.transaction.support.TransactionTemplate
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension.Companion.aapApi
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.CoordinatorApiExtension
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.CoordinatorApiExtension.Companion.coordinatorApi
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.HmppsAuthApiExtension.Companion.hmppsAuth
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.AssociationPayload
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.CoordinatorEvent
@@ -18,14 +20,16 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.EventType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.OasysEvent
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.VersionPayload
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePlanRepository
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service.SentencePlanSyncService
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service.SnapshotIngestService
 import java.time.LocalDateTime
 import java.util.UUID
 
-@ExtendWith(AapApiExtension::class)
+@ExtendWith(AapApiExtension::class, CoordinatorApiExtension::class)
 @TestPropertySource(
   properties = [
     "app.services.aap-api.base-url=http://localhost:8092",
+    "app.services.coordinator-api.base-url=http://localhost:8091",
     "app.client.id=test-client",
     "app.client.secret=test-secret",
     // application-test.yml turns this on suite-wide, which silently loads collections on detached
@@ -37,6 +41,9 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
 
   @Autowired
   private lateinit var snapshotIngestService: SnapshotIngestService
+
+  @Autowired
+  private lateinit var sentencePlanSyncService: SentencePlanSyncService
 
   @Autowired
   private lateinit var repository: SentencePlanRepository
@@ -66,6 +73,15 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
       val plan = repository.findByIdAndVersion(PLAN_ID, VERSION).orElseThrow()
       assertThat(plan.identifiers.single().value).isEqualTo("X000001")
       assertThat(plan.goals).hasSize(1)
+      assertThat(plan.goals.single().createdByUserId).isEqualTo(GOAL_CREATOR)
+      assertThat(plan.goals.single().createdByUserName).isEqualTo("Goal Creator")
+      assertThat(plan.goals.single().steps.single().createdByUserId).isEqualTo(STEP_CREATOR)
+      assertThat(plan.goals.single().steps.single().createdByUserName).isEqualTo("Step Creator")
+      assertThat(plan.goals.single().freeTexts.single().createdByUserId).isEqualTo(NOTE_CREATOR)
+      assertThat(plan.goals.single().freeTexts.single().createdByUserName).isEqualTo("Note Creator")
+      assertThat(plan.agreements.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
+      assertThat(plan.agreements.single().createdByUserName).isEqualTo("Agreement Creator")
+      assertThat(plan.agreements.single().freeTexts.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
     }
 
     // WHEN a later event rewrites the same (id, version) with different children
@@ -78,7 +94,37 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
       val plan = repository.findByIdAndVersion(PLAN_ID, VERSION).orElseThrow()
       assertThat(plan.identifiers.single().value).isEqualTo("X000001")
       assertThat(plan.goals.single().id).isEqualTo(REWRITE_GOAL_ID)
+      assertThat(plan.goals.single().createdByUserId).isEqualTo(GOAL_CREATOR)
+      assertThat(plan.goals.single().createdByUserName).isEqualTo("Test Creator")
       assertThat(plan.agreements.single().id).isEqualTo(REWRITE_AGREEMENT_ID)
+      assertThat(plan.agreements.single().createdByUserId).isEqualTo(GOAL_CREATOR)
+      assertThat(plan.agreements.single().createdByUserName).isEqualTo("Test Creator")
+      assertThat(plan.agreements.single().freeTexts.single().createdByUserId).isEqualTo(GOAL_CREATOR)
+      assertThat(plan.agreements.single().freeTexts.single().createdByUserName).isEqualTo("Test Creator")
+    }
+  }
+
+  @Test
+  fun `current-state sync does not change creator names on an immutable snapshot`() {
+    stubAap("aap-query-1.json", "aap-timeline-1.json")
+    snapshotIngestService.ingestVersion(event(FIRST_SEEN), payload(FIRST_SEEN))
+
+    aapApi.stubModifiedSinceQuery(loadFixture("aap-query-1-rewrite.json"))
+    aapApi.stubTimelineQuery(loadFixture("aap-timeline-1-rewrite.json").replace("Test Creator", "Current Creator"))
+    coordinatorApi.stubEntityAssociations(loadFixture("coordinator-1-rewrite.json"))
+    aapApi.stubSoftDeletedSinceQuery("""{"queries":[{"result":{"assessments":[]}}]}""")
+    sentencePlanSyncService.sync()
+
+    transactionTemplate.execute {
+      val snapshot = repository.findByIdAndVersion(PLAN_ID, VERSION).orElseThrow()
+      val current = repository.findByIdAndVersion(PLAN_ID, -1L).orElseThrow()
+      assertThat(snapshot.goals.single().createdByUserName).isEqualTo("Goal Creator")
+      assertThat(snapshot.goals.single().steps.single().createdByUserName).isEqualTo("Step Creator")
+      assertThat(snapshot.goals.single().freeTexts.single().createdByUserName).isEqualTo("Note Creator")
+      assertThat(snapshot.agreements.single().createdByUserName).isEqualTo("Agreement Creator")
+      assertThat(current.goals.single().createdByUserName).isEqualTo("Current Creator")
+      assertThat(current.agreements.single().createdByUserName).isEqualTo("Current Creator")
+      assertThat(current.agreements.single().freeTexts.single().createdByUserName).isEqualTo("Current Creator")
     }
   }
 
@@ -118,6 +164,10 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
     private val PLAN_ID = UUID.fromString("00000001-1111-1111-1111-000000000001")
     private val REWRITE_GOAL_ID = UUID.fromString("00000001-aaaa-aaaa-aaaa-000000000099")
     private val REWRITE_AGREEMENT_ID = UUID.fromString("00000001-dddd-dddd-dddd-000000000099")
+    private val GOAL_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000001")
+    private val STEP_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000002")
+    private val NOTE_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000003")
+    private val AGREEMENT_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000004")
     private val FIRST_SEEN = LocalDateTime.parse("2026-06-10T14:23:20.123")
     private val REWRITTEN = LocalDateTime.parse("2026-06-11T09:00:00.000")
   }

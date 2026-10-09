@@ -134,14 +134,15 @@ class SentencePlanMapper {
       return null
     }
     val createdAt = item.createdAt.toInstant()
-    val createdBy = authorship[item.uuid]?.createdBy ?: error("No timeline authorship found for agreement ${item.uuid}")
+    val agreementAuthorship = authorship[item.uuid] ?: error("No timeline authorship found for agreement ${item.uuid}")
     val agreement = PlanAgreementEntity(
       id = item.uuid,
       sentencePlan = plan,
       status = status,
       statusDate = item.properties.asString("status_date")?.toInstantOrNull(),
-      createdByUserId = createdBy,
+      createdByUserId = agreementAuthorship.createdBy,
       createdAt = createdAt,
+      createdByUserName = agreementAuthorship.createdByName,
     )
 
     AGREEMENT_FREE_TEXT_ANSWERS.forEach { (answerKey, type) ->
@@ -154,8 +155,9 @@ class SentencePlanMapper {
           textHash = sha256Hex(text),
           text = text,
           planAgreement = agreement,
-          createdByUserId = createdBy,
+          createdByUserId = agreementAuthorship.createdBy,
           createdAt = createdAt,
+          createdByUserName = agreementAuthorship.createdByName,
         ),
       )
     }
@@ -206,6 +208,7 @@ class SentencePlanMapper {
       goalOrder = order,
       createdByUserId = goalAuthorship.createdBy,
       updatedByUserId = goalAuthorship.updatedBy,
+      createdByUserName = goalAuthorship.createdByName,
     )
 
     item.answers.asStringList("related_areas_of_need").forEach { slug ->
@@ -250,7 +253,7 @@ class SentencePlanMapper {
       log.warn("Step {} has unknown status '{}'; skipping", item.uuid, statusKey)
       return null
     }
-    val createdBy = authorship[item.uuid]?.createdBy ?: error("No timeline authorship found for step ${item.uuid}")
+    val stepAuthorship = authorship[item.uuid] ?: error("No timeline authorship found for step ${item.uuid}")
     return StepEntity(
       id = item.uuid,
       goal = goal,
@@ -261,7 +264,8 @@ class SentencePlanMapper {
       status = status,
       statusDate = item.properties.asString("status_date")?.toInstantOrNull(),
       createdAt = item.createdAt.toInstant(),
-      createdByUserId = createdBy,
+      createdByUserId = stepAuthorship.createdBy,
+      createdByUserName = stepAuthorship.createdByName,
     )
   }
 
@@ -284,7 +288,7 @@ class SentencePlanMapper {
         return null
       }
     }
-    val createdBy = authorship[item.uuid]?.createdBy ?: error("No timeline authorship found for goal note ${item.uuid}")
+    val noteAuthorship = authorship[item.uuid] ?: error("No timeline authorship found for goal note ${item.uuid}")
     return FreeTextEntity(
       id = item.uuid,
       type = FreeTextType.GOAL_NOTE,
@@ -292,9 +296,10 @@ class SentencePlanMapper {
       textHash = sha256Hex(text),
       text = text,
       goal = goal,
-      createdByUserId = createdBy,
+      createdByUserId = noteAuthorship.createdBy,
       createdAt = createdAt,
       goalNoteType = noteType,
+      createdByUserName = noteAuthorship.createdByName,
     )
   }
 
