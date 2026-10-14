@@ -21,8 +21,3 @@ generic-service:
     mod-platform-non-live-eu-west-2b-nat: "13.42.163.245/32"
     mod-platform-non-live-eu-west-2a-nat: "13.43.9.198/32"
     mod-platform-non-live-eu-west-2c-nat: "18.132.208.127/32"
-
-# CloudPlatform AlertManager receiver to route prometheus alerts to slack
-# See https://user-guide.cloud-platform.service.justice.gov.uk/documentation/monitoring-an-app/how-to-create-alarms.html#creating-your-own-custom-alerts
-generic-prometheus-alerts:
-  alertSeverity: hmpps-arns-non-prod
