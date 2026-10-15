@@ -1,3 +1,7 @@
+ALTER TABLE goal ADD COLUMN created_by_user_name TEXT;
+ALTER TABLE step ADD COLUMN created_by_user_name TEXT;
+ALTER TABLE free_text ADD COLUMN created_by_user_name TEXT;
+ALTER TABLE plan_agreement ADD COLUMN created_by_user_name TEXT;
 ALTER TABLE goal ADD COLUMN created_by_source_user_id TEXT;
 ALTER TABLE goal ADD COLUMN created_by_auth_source TEXT;
 ALTER TABLE goal ADD COLUMN updated_by_source_user_id TEXT;
