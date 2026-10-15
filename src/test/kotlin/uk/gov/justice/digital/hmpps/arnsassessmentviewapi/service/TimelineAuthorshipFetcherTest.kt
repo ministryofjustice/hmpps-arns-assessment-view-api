@@ -3,6 +3,8 @@ package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
@@ -93,32 +95,65 @@ class TimelineAuthorshipFetcherTest {
       ),
     )
     whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(0), any()))
-      .thenReturn(timelinePageWithItems(uuid, items = mapOf(agreementUuid to (agreementCreator to "Agreement creator")), pageNumber = 0, totalPages = 2))
+      .thenReturn(
+        timelinePageWithItems(
+          uuid,
+          items = mapOf(agreementUuid to (agreementCreator to "Agreement creator")),
+          pageNumber = 0,
+          totalPages = 2,
+          sourceUserId = "agreement-id",
+          authSource = "OASYS",
+        ),
+      )
     whenever(aapApiClient.queryTimeline(eq(uuid), anyOrNull(), anyOrNull(), eq(1), any()))
-      .thenReturn(timelinePageWithItems(uuid, items = mapOf(noteUuid to (noteCreator to "Note creator")), pageNumber = 1, totalPages = 2))
+      .thenReturn(
+        timelinePageWithItems(
+          uuid,
+          items = mapOf(noteUuid to (noteCreator to "Note creator")),
+          pageNumber = 1,
+          totalPages = 2,
+          sourceUserId = "note-id",
+          authSource = "HMPPS_AUTH",
+        ),
+      )
 
     val result = fetcher.fetchIfNeeded(source)
 
     assertThat(result).containsExactlyInAnyOrderEntriesOf(
       mapOf(
-        agreementUuid to ItemAuthorship(agreementCreator, null, "Agreement creator"),
-        noteUuid to ItemAuthorship(noteCreator, null, "Note creator"),
+        agreementUuid to ItemAuthorship(agreementCreator, null, "Agreement creator", "agreement-id", "OASYS"),
+        noteUuid to ItemAuthorship(noteCreator, null, "Note creator", "note-id", "HMPPS_AUTH"),
       ),
     )
   }
 
-  @Test
-  fun `creator name and UUID come from the creation entry while latest goal updater remains independent`() {
+  @ParameterizedTest
+  @ValueSource(strings = ["OASYS", "HMPPS_AUTH", "NOT_SPECIFIED", "FUTURE_SOURCE"])
+  fun `creator and latest updater identities come from their own events across pages`(authSource: String) {
     val uuid = UUID.randomUUID()
     val goalUuid = UUID.randomUUID()
     val creator = UUID.randomUUID()
     val earlierUpdater = UUID.randomUUID()
     val latestUpdater = UUID.randomUUID()
     val source = assessment(uuid, collections = listOf(goalsCollection(listOf(goalItem(uuid = goalUuid)))))
-    val creation = timelineItem(uuid, goalUuid, creator, name = "Creator")
-    val updates = listOf(
-      updateTimelineItem(uuid, goalUuid, earlierUpdater, "2026-01-01T10:00:00", "Earlier updater"),
-      updateTimelineItem(uuid, goalUuid, latestUpdater, "2026-01-02T10:00:00", "Latest updater"),
+    val creation = timelineItem(uuid, goalUuid, creator, name = "Creator", sourceUserId = "creator-id", authSource = authSource)
+    val latestUpdate = updateTimelineItem(
+      uuid,
+      goalUuid,
+      latestUpdater,
+      "2026-01-02T10:00:00",
+      "Latest updater",
+      sourceUserId = "latest-updater-id",
+      authSource = "HMPPS_AUTH",
+    )
+    val earlierUpdate = updateTimelineItem(
+      uuid,
+      goalUuid,
+      earlierUpdater,
+      "2026-01-01T10:00:00",
+      "Earlier updater",
+      sourceUserId = "earlier-updater-id",
+      authSource = "OASYS",
     )
     whenever(aapApiClient.queryTimeline(eq(uuid), eq(setOf("CollectionItemAddedEvent")), anyOrNull(), eq(0), any()))
       .thenReturn(TimelineQueryResult(listOf(creation), PageInfo(0, 1)))
@@ -130,11 +165,103 @@ class TimelineAuthorshipFetcherTest {
         eq(0),
         any(),
       ),
-    ).thenReturn(TimelineQueryResult(updates, PageInfo(0, 1)))
+    ).thenReturn(TimelineQueryResult(listOf(latestUpdate), PageInfo(0, 2)))
+    whenever(
+      aapApiClient.queryTimeline(
+        eq(uuid),
+        anyOrNull(),
+        eq(setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")),
+        eq(1),
+        any(),
+      ),
+    ).thenReturn(TimelineQueryResult(listOf(earlierUpdate), PageInfo(1, 2)))
 
     val authorship = fetcher.fetchIfNeeded(source).getValue(goalUuid)
 
-    assertThat(authorship).isEqualTo(ItemAuthorship(creator, latestUpdater, "Creator"))
+    assertThat(authorship).isEqualTo(
+      ItemAuthorship(
+        createdBy = creator,
+        updatedBy = latestUpdater,
+        createdByName = "Creator",
+        createdBySourceUserId = "creator-id",
+        createdByAuthSource = authSource,
+        updatedBySourceUserId = "latest-updater-id",
+        updatedByAuthSource = "HMPPS_AUTH",
+      ),
+    )
+  }
+
+  @Test
+  fun `preserves creator source metadata when there is no goal updater`() {
+    val uuid = UUID.randomUUID()
+    val goalUuid = UUID.randomUUID()
+    val creator = UUID.randomUUID()
+    val source = assessment(uuid, collections = listOf(goalsCollection(listOf(goalItem(uuid = goalUuid)))))
+    whenever(aapApiClient.queryTimeline(any(), anyOrNull(), anyOrNull(), any(), any())).thenReturn(emptyTimelinePage())
+    whenever(aapApiClient.queryTimeline(eq(uuid), eq(setOf("CollectionItemAddedEvent")), anyOrNull(), eq(0), any()))
+      .thenReturn(
+        TimelineQueryResult(
+          listOf(timelineItem(uuid, goalUuid, creator, sourceUserId = "creator-id", authSource = "OASYS")),
+          PageInfo(0, 1),
+        ),
+      )
+
+    assertThat(fetcher.fetchIfNeeded(source).getValue(goalUuid)).isEqualTo(
+      ItemAuthorship(
+        createdBy = creator,
+        updatedBy = null,
+        createdByName = "User",
+        createdBySourceUserId = "creator-id",
+        createdByAuthSource = "OASYS",
+      ),
+    )
+  }
+
+  @Test
+  fun `missing latest updater metadata does not inherit creator or earlier updater metadata`() {
+    val uuid = UUID.randomUUID()
+    val goalUuid = UUID.randomUUID()
+    val creator = UUID.randomUUID()
+    val latestUpdater = UUID.randomUUID()
+    val source = assessment(uuid, collections = listOf(goalsCollection(listOf(goalItem(uuid = goalUuid)))))
+    whenever(aapApiClient.queryTimeline(eq(uuid), eq(setOf("CollectionItemAddedEvent")), anyOrNull(), eq(0), any()))
+      .thenReturn(
+        TimelineQueryResult(
+          listOf(timelineItem(uuid, goalUuid, creator, sourceUserId = "creator-id", authSource = "OASYS")),
+          PageInfo(0, 1),
+        ),
+      )
+    whenever(
+      aapApiClient.queryTimeline(
+        eq(uuid),
+        anyOrNull(),
+        eq(setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")),
+        eq(0),
+        any(),
+      ),
+    ).thenReturn(
+      TimelineQueryResult(
+        listOf(
+          updateTimelineItem(uuid, goalUuid, latestUpdater, "2026-01-02T10:00:00", "Latest updater"),
+          updateTimelineItem(
+            uuid,
+            goalUuid,
+            UUID.randomUUID(),
+            "2026-01-01T10:00:00",
+            "Earlier updater",
+            sourceUserId = "earlier-id",
+            authSource = "HMPPS_AUTH",
+          ),
+        ),
+        PageInfo(0, 1),
+      ),
+    )
+
+    val authorship = fetcher.fetchIfNeeded(source).getValue(goalUuid)
+
+    assertThat(authorship.updatedBy).isEqualTo(latestUpdater)
+    assertThat(authorship.updatedBySourceUserId).isNull()
+    assertThat(authorship.updatedByAuthSource).isNull()
   }
 
   @Test
@@ -214,8 +341,12 @@ class TimelineAuthorshipFetcherTest {
     items: Map<UUID, Pair<UUID, String>>,
     pageNumber: Int = 0,
     totalPages: Int = 1,
+    sourceUserId: String? = null,
+    authSource: String? = null,
   ): TimelineQueryResult = TimelineQueryResult(
-    timeline = items.map { (itemUuid, creator) -> timelineItem(assessmentUuid, itemUuid, creator.first, name = creator.second) },
+    timeline = items.map { (itemUuid, creator) ->
+      timelineItem(assessmentUuid, itemUuid, creator.first, name = creator.second, sourceUserId = sourceUserId, authSource = authSource)
+    },
     pageInfo = PageInfo(pageNumber = pageNumber, totalPages = totalPages),
   )
 
@@ -225,10 +356,12 @@ class TimelineAuthorshipFetcherTest {
     userUuid: UUID = UUID.randomUUID(),
     dataOverride: Map<String, Any>? = null,
     name: String = "User",
+    sourceUserId: String? = null,
+    authSource: String? = null,
   ): TimelineItem = TimelineItem(
     uuid = UUID.randomUUID(),
     timestamp = LocalDateTime.now(),
-    user = TimelineUser(id = userUuid, name = name),
+    user = TimelineUser(id = userUuid, name = name, userId = sourceUserId, authSource = authSource),
     assessment = assessmentUuid,
     event = "CollectionItemAddedEvent",
     data = dataOverride ?: mapOf("collectionItemUuid" to itemUuid.toString()),
@@ -240,10 +373,12 @@ class TimelineAuthorshipFetcherTest {
     userUuid: UUID,
     timestamp: String,
     name: String,
+    sourceUserId: String? = null,
+    authSource: String? = null,
   ): TimelineItem = TimelineItem(
     uuid = UUID.randomUUID(),
     timestamp = LocalDateTime.parse(timestamp),
-    user = TimelineUser(id = userUuid, name = name),
+    user = TimelineUser(id = userUuid, name = name, userId = sourceUserId, authSource = authSource),
     assessment = assessmentUuid,
     event = "CollectionItemPropertiesUpdatedEvent",
     customType = "GOAL_UPDATED",

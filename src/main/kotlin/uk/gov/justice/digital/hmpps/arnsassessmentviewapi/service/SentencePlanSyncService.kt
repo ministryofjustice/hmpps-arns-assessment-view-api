@@ -220,4 +220,8 @@ data class ItemAuthorship(
   val createdBy: UUID,
   val updatedBy: UUID?,
   val createdByName: String? = null,
+  val createdBySourceUserId: String? = null,
+  val createdByAuthSource: String? = null,
+  val updatedBySourceUserId: String? = null,
+  val updatedByAuthSource: String? = null,
 )

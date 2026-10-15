@@ -3,6 +3,7 @@ package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service
 import org.springframework.stereotype.Component
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.AapApiClient
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.AssessmentVersionQueryResult
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.TimelineUser
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -20,7 +21,16 @@ class TimelineAuthorshipFetcher(
     val creators = harvestCreatedBy(assessment.assessmentUuid)
     val goalUpdatedBy = harvestGoalUpdatedBy(assessment.assessmentUuid)
     return creators.mapValues { (itemUuid, creator) ->
-      ItemAuthorship(createdBy = creator.id, updatedBy = goalUpdatedBy[itemUuid], createdByName = creator.name)
+      val updater = goalUpdatedBy[itemUuid]
+      ItemAuthorship(
+        createdBy = creator.id,
+        updatedBy = updater?.id,
+        createdByName = creator.name,
+        createdBySourceUserId = creator.userId,
+        createdByAuthSource = creator.authSource,
+        updatedBySourceUserId = updater?.userId,
+        updatedByAuthSource = updater?.authSource,
+      )
     }
   }
 
@@ -29,8 +39,8 @@ class TimelineAuthorshipFetcher(
     (collection.name == COLLECTION_PLAN_AGREEMENTS || collection.name == COLLECTION_GOALS) && collection.items.isNotEmpty()
   }
 
-  private fun harvestCreatedBy(assessmentUuid: UUID): Map<UUID, Creator> {
-    val createdBy = mutableMapOf<UUID, Creator>()
+  private fun harvestCreatedBy(assessmentUuid: UUID): Map<UUID, TimelineUser> {
+    val createdBy = mutableMapOf<UUID, TimelineUser>()
     var pageNumber = 0
     while (true) {
       val page = aapApiClient.queryTimeline(
@@ -41,7 +51,7 @@ class TimelineAuthorshipFetcher(
       )
       page.timeline.forEach { item ->
         val itemUuid = (item.data[TIMELINE_DATA_ITEM_UUID] as? String)?.let(UUID::fromString) ?: return@forEach
-        createdBy[itemUuid] = Creator(item.user.id, item.user.name)
+        createdBy[itemUuid] = item.user
       }
       if (page.timeline.isEmpty() || pageNumber >= page.pageInfo.totalPages - 1) break
       pageNumber++
@@ -49,8 +59,8 @@ class TimelineAuthorshipFetcher(
     return createdBy
   }
 
-  private fun harvestGoalUpdatedBy(assessmentUuid: UUID): Map<UUID, UUID> {
-    data class Latest(val timestamp: LocalDateTime, val user: UUID)
+  private fun harvestGoalUpdatedBy(assessmentUuid: UUID): Map<UUID, TimelineUser> {
+    data class Latest(val timestamp: LocalDateTime, val user: TimelineUser)
     val latest = mutableMapOf<UUID, Latest>()
     var pageNumber = 0
     while (true) {
@@ -65,7 +75,7 @@ class TimelineAuthorshipFetcher(
         val goalUuid = (customData[CUSTOM_DATA_GOAL_UUID] as? String)?.let(UUID::fromString) ?: return@forEach
         val current = latest[goalUuid]
         if (current == null || item.timestamp.isAfter(current.timestamp)) {
-          latest[goalUuid] = Latest(item.timestamp, item.user.id)
+          latest[goalUuid] = Latest(item.timestamp, item.user)
         }
       }
       if (page.timeline.isEmpty() || pageNumber >= page.pageInfo.totalPages - 1) break
@@ -75,8 +85,6 @@ class TimelineAuthorshipFetcher(
   }
 
   private companion object {
-    private data class Creator(val id: UUID, val name: String)
-
     private const val PAGE_SIZE = 50
     private const val ADD_EVENT_TYPE = "CollectionItemAddedEvent"
     private val GOAL_UPDATE_CUSTOM_TYPES = setOf("GOAL_UPDATED", "GOAL_ACHIEVED", "GOAL_REMOVED", "GOAL_READDED")

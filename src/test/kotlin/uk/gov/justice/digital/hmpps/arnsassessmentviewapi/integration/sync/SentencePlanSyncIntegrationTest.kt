@@ -4,6 +4,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.TestPropertySource
@@ -53,6 +55,52 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     aapApi.stubSoftDeletedSinceQuery("""{"queries":[{"result":{"assessments":[]}}]}""")
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = [false, true])
+  fun `sync preserves UUIDs and names when source metadata is absent or null`(explicitNull: Boolean) {
+    val metadata = if (explicitNull) """, "userId": null, "authSource": null""" else ""
+    val timeline = loadFixture("aap-timeline-1.json").replace(
+      Regex(""", "userId": (?:null|"[^"]*"), "authSource": (?:null|"[^"]*")"""),
+      metadata,
+    )
+    aapApi.stubModifiedSinceQuery(loadFixture("aap-query-1.json"))
+    aapApi.stubTimelineQuery(timeline)
+    coordinatorApi.stubEntityAssociations(loadFixture("coordinator-1.json"))
+
+    sentencePlanSyncService.sync()
+
+    transactionTemplate.executeWithoutResult {
+      val plan = repository.findByIdAndVersion(PLAN_ID, SentencePlanEntity.CURRENT_VERSION).orElseThrow()
+      val goal = plan.goals.single()
+      assertThat(goal.createdByUserId).isEqualTo(GOAL_CREATOR)
+      assertThat(goal.createdByUserName).isEqualTo("Goal Creator")
+      assertThat(goal.updatedByUserId).isEqualTo(GOAL_UPDATER)
+      assertThat(goal.createdBySourceUserId).isNull()
+      assertThat(goal.createdByAuthSource).isNull()
+      assertThat(goal.updatedBySourceUserId).isNull()
+      assertThat(goal.updatedByAuthSource).isNull()
+      assertThat(goal.steps.single().createdByUserId).isEqualTo(STEP_CREATOR)
+      assertThat(goal.steps.single().createdByUserName).isEqualTo("Step Creator")
+      assertThat(goal.steps.single().createdBySourceUserId).isNull()
+      assertThat(goal.steps.single().createdByAuthSource).isNull()
+      assertThat(goal.freeTexts.single().createdByUserId).isEqualTo(NOTE_CREATOR)
+      assertThat(goal.freeTexts.single().createdByUserName).isEqualTo("Note Creator")
+      assertThat(goal.freeTexts.single().createdBySourceUserId).isNull()
+      assertThat(goal.freeTexts.single().createdByAuthSource).isNull()
+      assertThat(plan.agreements.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
+      assertThat(plan.agreements.single().createdByUserName).isEqualTo("Agreement Creator")
+      assertThat(plan.agreements.single().createdBySourceUserId).isNull()
+      assertThat(plan.agreements.single().createdByAuthSource).isNull()
+      assertThat(plan.agreements.single().freeTexts.single().createdBySourceUserId).isNull()
+      assertThat(plan.agreements.single().freeTexts.single().createdByAuthSource).isNull()
+      assertViewSource("goal_vw", GOAL_ID, null, null)
+      assertViewSource("goal_vw", GOAL_ID, null, null, prefix = "updated")
+      assertViewSource("step_vw", STEP_ID, null, null)
+      assertViewSource("free_text_vw", NOTE_ID, null, null)
+      assertViewSource("plan_agreement_vw", AGREEMENT_ID, null, null)
+    }
+  }
+
   // Smoke test: prove Spring beans, JPA cascade, wiremock contract, and JSON deserialisation
   // all work together end-to-end.
   @Test
@@ -80,22 +128,40 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
       assertThat(goal.createdByUserId).isEqualTo(GOAL_CREATOR)
       assertThat(goal.createdByUserName).isEqualTo("Goal Creator")
       assertThat(goal.updatedByUserId).isEqualTo(GOAL_UPDATER)
+      assertThat(goal.createdBySourceUserId).isEqualTo("goal.creator")
+      assertThat(goal.createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertThat(goal.updatedBySourceUserId).isEqualTo("goal.updater")
+      assertThat(goal.updatedByAuthSource).isEqualTo("NOT_SPECIFIED")
       val step = goal.steps.single()
       assertThat(step.createdByUserId).isEqualTo(STEP_CREATOR)
       assertThat(step.createdByUserName).isEqualTo("Step Creator")
+      assertThat(step.createdBySourceUserId).isEqualTo("12345")
+      assertThat(step.createdByAuthSource).isEqualTo("OASYS")
       val note = goal.freeTexts.single()
       assertThat(note.createdByUserId).isEqualTo(NOTE_CREATOR)
       assertThat(note.createdByUserName).isEqualTo("Note Creator")
+      assertThat(note.createdBySourceUserId).isEqualTo("note.creator")
+      assertThat(note.createdByAuthSource).isEqualTo("HMPPS_AUTH")
       val agreement = plan.agreements.single()
       assertThat(agreement.createdByUserId).isEqualTo(AGREEMENT_CREATOR)
       assertThat(agreement.createdByUserName).isEqualTo("Agreement Creator")
+      assertThat(agreement.createdBySourceUserId).isEqualTo("agreement.creator")
+      assertThat(agreement.createdByAuthSource).isEqualTo("FUTURE_IDENTITY_PROVIDER")
       assertThat(agreement.freeTexts.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
       assertThat(agreement.freeTexts.single().createdByUserName).isEqualTo("Agreement Creator")
+      assertThat(agreement.freeTexts.single().createdBySourceUserId).isEqualTo("agreement.creator")
+      assertThat(agreement.freeTexts.single().createdByAuthSource).isEqualTo("FUTURE_IDENTITY_PROVIDER")
 
       assertThat(viewName("goal_vw", GOAL_ID)).isEqualTo("Goal Creator")
       assertThat(viewName("step_vw", STEP_ID)).isEqualTo("Step Creator")
       assertThat(viewName("free_text_vw", NOTE_ID)).isEqualTo("Note Creator")
       assertThat(viewName("plan_agreement_vw", AGREEMENT_ID)).isEqualTo("Agreement Creator")
+      assertViewSource("goal_vw", GOAL_ID, "goal.creator", "HMPPS_AUTH")
+      assertViewSource("goal_vw", GOAL_ID, "goal.updater", "NOT_SPECIFIED", prefix = "updated")
+      assertViewSource("step_vw", STEP_ID, "12345", "OASYS")
+      assertViewSource("free_text_vw", NOTE_ID, "note.creator", "HMPPS_AUTH")
+      assertViewSource("free_text_vw", agreement.freeTexts.single().id, "agreement.creator", "FUTURE_IDENTITY_PROVIDER")
+      assertViewSource("plan_agreement_vw", AGREEMENT_ID, "agreement.creator", "FUTURE_IDENTITY_PROVIDER")
 
       jdbcTemplate.update("UPDATE goal SET created_by_user_name = NULL WHERE id = ?", GOAL_ID)
       assertThat(viewName("goal_vw", GOAL_ID)).isNull()
@@ -139,13 +205,24 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     assertThat(goal.freeTexts).isEmpty()
     assertThat(goal.createdByUserId).isEqualTo(GOAL_CREATOR)
     assertThat(goal.createdByUserName).isEqualTo("Test Creator")
+    assertThat(goal.createdBySourceUserId).isEqualTo("refreshed.goal.creator")
+    assertThat(goal.createdByAuthSource).isEqualTo("OASYS")
+    assertThat(goal.updatedBySourceUserId).isNull()
+    assertThat(goal.updatedByAuthSource).isNull()
     assertThat(plan.agreements).hasSize(1)
     val agreement = plan.agreements.single()
     assertThat(agreement.id).isEqualTo(REWRITE_AGREEMENT_ID)
     assertThat(agreement.status).isEqualTo(PlanStatus.AGREED)
-    assertThat(agreement.createdByUserId).isEqualTo(GOAL_CREATOR)
-    assertThat(agreement.createdByUserName).isEqualTo("Test Creator")
-    assertThat(agreement.freeTexts.single().createdByUserName).isEqualTo("Test Creator")
+    assertThat(agreement.createdByUserId).isEqualTo(AGREEMENT_CREATOR)
+    assertThat(agreement.createdByUserName).isEqualTo("Rewrite Agreement Creator")
+    assertThat(agreement.createdBySourceUserId).isEqualTo("refreshed.agreement.creator")
+    assertThat(agreement.createdByAuthSource).isEqualTo("HMPPS_AUTH")
+    assertThat(agreement.freeTexts.single().createdByUserName).isEqualTo("Rewrite Agreement Creator")
+    assertThat(agreement.freeTexts.single().createdBySourceUserId).isEqualTo("refreshed.agreement.creator")
+    assertThat(agreement.freeTexts.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+    assertViewSource("goal_vw", REWRITE_GOAL_ID, "refreshed.goal.creator", "OASYS")
+    assertViewSource("goal_vw", REWRITE_GOAL_ID, null, null, prefix = "updated")
+    assertViewSource("plan_agreement_vw", REWRITE_AGREEMENT_ID, "refreshed.agreement.creator", "HMPPS_AUTH")
   }
 
   @Test
@@ -174,6 +251,15 @@ class SentencePlanSyncIntegrationTest : IntegrationTestBase() {
     String::class.java,
     id,
   )
+
+  private fun assertViewSource(view: String, id: UUID, sourceUserId: String?, authSource: String?, prefix: String = "created") {
+    val row = jdbcTemplate.queryForMap(
+      """SELECT ${prefix}_by_source_user_id, ${prefix}_by_auth_source FROM "assessment-view".$view WHERE id = ?""",
+      id,
+    )
+    assertThat(row["${prefix}_by_source_user_id"]).isEqualTo(sourceUserId)
+    assertThat(row["${prefix}_by_auth_source"]).isEqualTo(authSource)
+  }
 
   private companion object {
     private val PLAN_ID = UUID.fromString("00000001-1111-1111-1111-000000000001")

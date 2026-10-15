@@ -15,6 +15,8 @@ The sync mode calls the Coordinator API to resolve OASys assessment PKs for each
 
 Creator display names are stored from the user name supplied with each AAP timeline creation event at ingestion time. User UUIDs remain the identity keys; display names are labels and are not guaranteed to represent the name used when the action originally occurred. Existing rows remain null until explicitly reprocessed. Incremental sync is not a complete backfill, and populating names on existing immutable snapshots requires a separate backfill decision.
 
+Source-system user IDs and authentication sources are also stored from those timeline actors and exposed in the reporting views as `created_by_source_user_id` and `created_by_auth_source`. Goals additionally expose `updated_by_source_user_id` and `updated_by_auth_source` from the same event used for the existing updater UUID. Source IDs are strings qualified by their authentication source (for example, `OASYS`, `HMPPS_AUTH` or `NOT_SPECIFIED`); they do not replace the AAP UUID keys. Missing source metadata stays null, including on existing rows until reprocessed. The existing sync-boundary reset workflow can repopulate eligible current-state rows, but does not enrich historical snapshots. No automatic historical backfill is performed, and consumer API responses are unchanged. Metadata reflects the stored user details returned by AAP at query time, not necessarily the identity details at the original action time.
+
 ## Local Development
 
 ### Prerequisites

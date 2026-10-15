@@ -83,6 +83,8 @@ data class MultiValue(val values: List<String>) : Value
 data class AapUser(
   val id: UUID,
   val name: String,
+  val userId: String? = null,
+  val authSource: String? = null,
 )
 
 enum class IdentifierType {
@@ -163,6 +165,8 @@ data class TimelineItem(
 data class TimelineUser(
   val id: UUID,
   val name: String,
+  val userId: String? = null,
+  val authSource: String? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

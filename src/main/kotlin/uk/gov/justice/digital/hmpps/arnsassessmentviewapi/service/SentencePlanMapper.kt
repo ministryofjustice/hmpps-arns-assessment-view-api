@@ -143,6 +143,8 @@ class SentencePlanMapper {
       createdByUserId = agreementAuthorship.createdBy,
       createdAt = createdAt,
       createdByUserName = agreementAuthorship.createdByName,
+      createdBySourceUserId = agreementAuthorship.createdBySourceUserId,
+      createdByAuthSource = agreementAuthorship.createdByAuthSource,
     )
 
     AGREEMENT_FREE_TEXT_ANSWERS.forEach { (answerKey, type) ->
@@ -158,6 +160,8 @@ class SentencePlanMapper {
           createdByUserId = agreementAuthorship.createdBy,
           createdAt = createdAt,
           createdByUserName = agreementAuthorship.createdByName,
+          createdBySourceUserId = agreementAuthorship.createdBySourceUserId,
+          createdByAuthSource = agreementAuthorship.createdByAuthSource,
         ),
       )
     }
@@ -209,6 +213,10 @@ class SentencePlanMapper {
       createdByUserId = goalAuthorship.createdBy,
       updatedByUserId = goalAuthorship.updatedBy,
       createdByUserName = goalAuthorship.createdByName,
+      createdBySourceUserId = goalAuthorship.createdBySourceUserId,
+      createdByAuthSource = goalAuthorship.createdByAuthSource,
+      updatedBySourceUserId = goalAuthorship.updatedBySourceUserId,
+      updatedByAuthSource = goalAuthorship.updatedByAuthSource,
     )
 
     item.answers.asStringList("related_areas_of_need").forEach { slug ->
@@ -266,6 +274,8 @@ class SentencePlanMapper {
       createdAt = item.createdAt.toInstant(),
       createdByUserId = stepAuthorship.createdBy,
       createdByUserName = stepAuthorship.createdByName,
+      createdBySourceUserId = stepAuthorship.createdBySourceUserId,
+      createdByAuthSource = stepAuthorship.createdByAuthSource,
     )
   }
 
@@ -300,6 +310,8 @@ class SentencePlanMapper {
       createdAt = createdAt,
       goalNoteType = noteType,
       createdByUserName = noteAuthorship.createdByName,
+      createdBySourceUserId = noteAuthorship.createdBySourceUserId,
+      createdByAuthSource = noteAuthorship.createdByAuthSource,
     )
   }
 

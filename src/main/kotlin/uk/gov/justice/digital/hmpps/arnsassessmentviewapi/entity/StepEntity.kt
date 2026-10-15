@@ -50,4 +50,10 @@ class StepEntity(
 
   @Column(name = "created_by_user_name")
   val createdByUserName: String? = null,
+
+  @Column(name = "created_by_source_user_id")
+  val createdBySourceUserId: String? = null,
+
+  @Column(name = "created_by_auth_source")
+  val createdByAuthSource: String? = null,
 )
