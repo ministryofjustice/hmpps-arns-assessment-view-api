@@ -145,7 +145,7 @@ class SentencePlanSyncService(
         }
       }
       flagged
-    } ?: 0
+    }
   }
 
   // Watermark = previous sync's start time, so the window covers everything updated since the previous sync began
