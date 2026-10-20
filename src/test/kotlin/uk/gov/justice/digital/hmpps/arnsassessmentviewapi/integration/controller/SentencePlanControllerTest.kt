@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.test.context.TestPropertySource
+import org.springframework.test.json.JsonCompareMode
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension.Companion.aapApi
@@ -130,7 +131,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
             }]
           }
           """,
-          true,
+          JsonCompareMode.STRICT,
         )
     }
 
@@ -153,7 +154,7 @@ class SentencePlanControllerTest : IntegrationTestBase() {
             "goals": []
           }
           """,
-          true,
+          JsonCompareMode.STRICT,
         )
     }
 

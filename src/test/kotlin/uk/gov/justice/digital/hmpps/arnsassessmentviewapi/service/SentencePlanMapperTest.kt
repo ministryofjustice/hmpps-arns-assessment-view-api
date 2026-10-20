@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.NullSource
+import org.junit.jupiter.params.provider.ValueSource
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.AapUser
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.MultiValue
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.ActorType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.CriminogenicNeed
@@ -38,7 +41,95 @@ class SentencePlanMapperTest {
 
   private val mapper = SentencePlanMapper()
 
-  private fun authorOf(user: UUID) = ItemAuthorship(createdBy = user, updatedBy = user)
+  private fun authorOf(user: UUID, name: String? = null) = ItemAuthorship(createdBy = user, updatedBy = user, createdByName = name)
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = ["OASYS", "HMPPS_AUTH", "NOT_SPECIFIED", "FUTURE_SOURCE"])
+  fun `maps each item's actor identity without using collaborator or assigned user`(authSource: String?) {
+    val goalUuid = UUID.randomUUID()
+    val stepUuid = UUID.randomUUID()
+    val noteUuid = UUID.randomUUID()
+    val agreementUuid = UUID.randomUUID()
+    val source = assessment(
+      collections = listOf(
+        goalsCollection(listOf(goalItem(uuid = goalUuid, steps = listOf(stepItem(uuid = stepUuid)), notes = listOf(noteItem(uuid = noteUuid))))),
+        agreementsCollection(listOf(agreementItem(uuid = agreementUuid, detailsNo = "details"))),
+      ),
+    ).copy(
+      collaborators = setOf(AapUser(UUID.randomUUID(), "Collaborator", "collaborator-id", "HMPPS_AUTH")),
+      assignedUser = AapUser(UUID.randomUUID(), "Assigned user", "assignee-id", "HMPPS_AUTH"),
+    )
+    fun author(name: String, updater: UUID? = null) = ItemAuthorship(
+      createdBy = UUID.randomUUID(),
+      updatedBy = updater,
+      createdByName = name,
+      createdBySourceUserId = authSource?.let { "$name-id" },
+      createdByAuthSource = authSource,
+      updatedBySourceUserId = if (updater != null && authSource != null) "updater-id" else null,
+      updatedByAuthSource = if (updater != null) authSource else null,
+    )
+    val authorship = mapOf(
+      goalUuid to author("Goal creator", UUID.randomUUID()),
+      stepUuid to author("Step creator"),
+      noteUuid to author("Note creator"),
+      agreementUuid to author("Agreement creator"),
+    )
+
+    val plan = mapper.toEntity(source, association(), existing = null, authorship = authorship)
+    val goal = plan.goals.single()
+    val step = goal.steps.single()
+    val note = goal.freeTexts.single()
+    val agreement = plan.agreements.single()
+    val agreementFreeText = agreement.freeTexts.single()
+
+    assertThat(goal.createdByUserId).isEqualTo(authorship.getValue(goalUuid).createdBy)
+    assertThat(goal.createdByUserName).isEqualTo("Goal creator")
+    assertThat(goal.createdBySourceUserId).isEqualTo(authSource?.let { "Goal creator-id" })
+    assertThat(goal.createdByAuthSource).isEqualTo(authSource)
+    assertThat(goal.updatedByUserId).isEqualTo(authorship.getValue(goalUuid).updatedBy)
+    assertThat(goal.updatedBySourceUserId).isEqualTo(authSource?.let { "updater-id" })
+    assertThat(goal.updatedByAuthSource).isEqualTo(authSource)
+    assertThat(step.createdByUserId).isEqualTo(authorship.getValue(stepUuid).createdBy)
+    assertThat(step.createdByUserName).isEqualTo("Step creator")
+    assertThat(step.createdBySourceUserId).isEqualTo(authSource?.let { "Step creator-id" })
+    assertThat(step.createdByAuthSource).isEqualTo(authSource)
+    assertThat(note.createdByUserId).isEqualTo(authorship.getValue(noteUuid).createdBy)
+    assertThat(note.createdByUserName).isEqualTo("Note creator")
+    assertThat(note.createdBySourceUserId).isEqualTo(authSource?.let { "Note creator-id" })
+    assertThat(note.createdByAuthSource).isEqualTo(authSource)
+    assertThat(agreement.createdByUserId).isEqualTo(authorship.getValue(agreementUuid).createdBy)
+    assertThat(agreement.createdByUserName).isEqualTo("Agreement creator")
+    assertThat(agreement.createdBySourceUserId).isEqualTo(authSource?.let { "Agreement creator-id" })
+    assertThat(agreement.createdByAuthSource).isEqualTo(authSource)
+    assertThat(agreementFreeText.createdByUserId).isEqualTo(agreement.createdByUserId)
+    assertThat(agreementFreeText.createdByUserName).isEqualTo(agreement.createdByUserName)
+    assertThat(agreementFreeText.createdBySourceUserId).isEqualTo(agreement.createdBySourceUserId)
+    assertThat(agreementFreeText.createdByAuthSource).isEqualTo(agreement.createdByAuthSource)
+    assertThat(listOf(goal.createdByUserName, step.createdByUserName, note.createdByUserName, agreement.createdByUserName))
+      .doesNotContain("Collaborator", "Assigned user")
+  }
+
+  @Test
+  fun `maps legacy authorship without a creator name to null`() {
+    val goalUuid = UUID.randomUUID()
+    val source = assessment(collections = listOf(goalsCollection(listOf(goalItem(uuid = goalUuid)))))
+    val creator = UUID.randomUUID()
+
+    val goal = mapper.toEntity(
+      source,
+      association(),
+      existing = null,
+      authorship = mapOf(goalUuid to authorOf(creator)),
+    ).goals.single()
+
+    assertThat(goal.createdByUserId).isEqualTo(creator)
+    assertThat(goal.createdByUserName).isNull()
+    assertThat(goal.createdBySourceUserId).isNull()
+    assertThat(goal.createdByAuthSource).isNull()
+    assertThat(goal.updatedBySourceUserId).isNull()
+    assertThat(goal.updatedByAuthSource).isNull()
+  }
 
   @Nested
   inner class ToEntityTopLevel {

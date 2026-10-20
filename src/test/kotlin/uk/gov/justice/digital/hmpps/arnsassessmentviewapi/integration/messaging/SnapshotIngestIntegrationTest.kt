@@ -1,16 +1,21 @@
 package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.messaging
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
+import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.support.TransactionTemplate
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.AapApiExtension.Companion.aapApi
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.CoordinatorApiExtension
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.CoordinatorApiExtension.Companion.coordinatorApi
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.wiremock.HmppsAuthApiExtension.Companion.hmppsAuth
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.AssociationPayload
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.CoordinatorEvent
@@ -18,14 +23,16 @@ import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.EventType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.OasysEvent
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.messaging.VersionPayload
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.repository.SentencePlanRepository
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service.SentencePlanSyncService
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.service.SnapshotIngestService
 import java.time.LocalDateTime
 import java.util.UUID
 
-@ExtendWith(AapApiExtension::class)
+@ExtendWith(AapApiExtension::class, CoordinatorApiExtension::class)
 @TestPropertySource(
   properties = [
     "app.services.aap-api.base-url=http://localhost:8092",
+    "app.services.coordinator-api.base-url=http://localhost:8091",
     "app.client.id=test-client",
     "app.client.secret=test-secret",
     // application-test.yml turns this on suite-wide, which silently loads collections on detached
@@ -39,6 +46,9 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
   private lateinit var snapshotIngestService: SnapshotIngestService
 
   @Autowired
+  private lateinit var sentencePlanSyncService: SentencePlanSyncService
+
+  @Autowired
   private lateinit var repository: SentencePlanRepository
 
   @Autowired
@@ -46,6 +56,9 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
 
   @Autowired
   private lateinit var objectMapper: ObjectMapper
+
+  @Autowired
+  private lateinit var jdbcTemplate: JdbcTemplate
 
   @BeforeEach
   fun setUp() {
@@ -66,10 +79,45 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
       val plan = repository.findByIdAndVersion(PLAN_ID, VERSION).orElseThrow()
       assertThat(plan.identifiers.single().value).isEqualTo("X000001")
       assertThat(plan.goals).hasSize(1)
+      assertThat(plan.goals.single().createdByUserId).isEqualTo(GOAL_CREATOR)
+      assertThat(plan.goals.single().createdByUserName).isEqualTo("Goal Creator")
+      assertThat(plan.goals.single().createdBySourceUserId).isEqualTo("goal.creator")
+      assertThat(plan.goals.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertThat(plan.goals.single().updatedBySourceUserId).isEqualTo("goal.updater")
+      assertThat(plan.goals.single().updatedByAuthSource).isEqualTo("NOT_SPECIFIED")
+      assertThat(plan.goals.single().steps.single().createdByUserId).isEqualTo(STEP_CREATOR)
+      assertThat(plan.goals.single().steps.single().createdByUserName).isEqualTo("Step Creator")
+      assertThat(plan.goals.single().steps.single().createdBySourceUserId).isEqualTo("12345")
+      assertThat(plan.goals.single().steps.single().createdByAuthSource).isEqualTo("OASYS")
+      assertThat(plan.goals.single().freeTexts.single().createdByUserId).isEqualTo(NOTE_CREATOR)
+      assertThat(plan.goals.single().freeTexts.single().createdByUserName).isEqualTo("Note Creator")
+      assertThat(plan.goals.single().freeTexts.single().createdBySourceUserId).isEqualTo("note.creator")
+      assertThat(plan.goals.single().freeTexts.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertThat(plan.agreements.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
+      assertThat(plan.agreements.single().createdByUserName).isEqualTo("Agreement Creator")
+      assertThat(plan.agreements.single().createdBySourceUserId).isEqualTo("agreement.creator")
+      assertThat(plan.agreements.single().createdByAuthSource).isEqualTo("FUTURE_IDENTITY_PROVIDER")
+      assertThat(plan.agreements.single().freeTexts.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
+      assertThat(plan.agreements.single().freeTexts.single().createdBySourceUserId).isEqualTo("agreement.creator")
+      assertThat(plan.agreements.single().freeTexts.single().createdByAuthSource).isEqualTo("FUTURE_IDENTITY_PROVIDER")
+      assertViewSource("goal_vw", plan.goals.single().id, "goal.creator", "HMPPS_AUTH")
+      assertViewSource("goal_vw", plan.goals.single().id, "goal.updater", "NOT_SPECIFIED", prefix = "updated")
+      assertViewSource("step_vw", plan.goals.single().steps.single().id, "12345", "OASYS")
+      assertViewSource("free_text_vw", plan.goals.single().freeTexts.single().id, "note.creator", "HMPPS_AUTH")
+      assertViewSource("plan_agreement_vw", plan.agreements.single().id, "agreement.creator", "FUTURE_IDENTITY_PROVIDER")
+    }
+
+    stubAap("aap-query-1-rewrite.json", "aap-timeline-1-rewrite.json")
+    aapApi.resetRequests()
+    snapshotIngestService.ingestVersion(event(FIRST_SEEN), payload(FIRST_SEEN))
+    aapApi.verify(0, postRequestedFor(urlEqualTo("/query")))
+    transactionTemplate.execute {
+      val plan = repository.findByIdAndVersion(PLAN_ID, VERSION).orElseThrow()
+      assertThat(plan.goals.single().createdBySourceUserId).isEqualTo("goal.creator")
+      assertThat(plan.agreements.single().createdBySourceUserId).isEqualTo("agreement.creator")
     }
 
     // WHEN a later event rewrites the same (id, version) with different children
-    stubAap("aap-query-1-rewrite.json", "aap-timeline-1-rewrite.json")
     snapshotIngestService.ingestVersion(event(REWRITTEN), payload(REWRITTEN))
 
     // THEN the children are swapped rather than duplicated, and the identical identifier value
@@ -78,7 +126,70 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
       val plan = repository.findByIdAndVersion(PLAN_ID, VERSION).orElseThrow()
       assertThat(plan.identifiers.single().value).isEqualTo("X000001")
       assertThat(plan.goals.single().id).isEqualTo(REWRITE_GOAL_ID)
+      assertThat(plan.goals.single().createdByUserId).isEqualTo(GOAL_CREATOR)
+      assertThat(plan.goals.single().createdByUserName).isEqualTo("Test Creator")
+      assertThat(plan.goals.single().createdBySourceUserId).isEqualTo("refreshed.goal.creator")
+      assertThat(plan.goals.single().createdByAuthSource).isEqualTo("OASYS")
+      assertThat(plan.goals.single().updatedBySourceUserId).isNull()
+      assertThat(plan.goals.single().updatedByAuthSource).isNull()
       assertThat(plan.agreements.single().id).isEqualTo(REWRITE_AGREEMENT_ID)
+      assertThat(plan.agreements.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
+      assertThat(plan.agreements.single().createdByUserName).isEqualTo("Rewrite Agreement Creator")
+      assertThat(plan.agreements.single().createdBySourceUserId).isEqualTo("refreshed.agreement.creator")
+      assertThat(plan.agreements.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertThat(plan.agreements.single().freeTexts.single().createdByUserId).isEqualTo(AGREEMENT_CREATOR)
+      assertThat(plan.agreements.single().freeTexts.single().createdByUserName).isEqualTo("Rewrite Agreement Creator")
+      assertThat(plan.agreements.single().freeTexts.single().createdBySourceUserId).isEqualTo("refreshed.agreement.creator")
+      assertThat(plan.agreements.single().freeTexts.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertViewSource("goal_vw", REWRITE_GOAL_ID, "refreshed.goal.creator", "OASYS")
+      assertViewSource("goal_vw", REWRITE_GOAL_ID, null, null, prefix = "updated")
+      assertViewSource("plan_agreement_vw", REWRITE_AGREEMENT_ID, "refreshed.agreement.creator", "HMPPS_AUTH")
+    }
+  }
+
+  @Test
+  fun `current-state sync does not change creator names or source identities on an immutable snapshot`() {
+    stubAap("aap-query-1.json", "aap-timeline-1.json")
+    snapshotIngestService.ingestVersion(event(FIRST_SEEN), payload(FIRST_SEEN))
+
+    aapApi.stubModifiedSinceQuery(loadFixture("aap-query-1-rewrite.json"))
+    aapApi.stubTimelineQuery(loadFixture("aap-timeline-1-rewrite.json").replace("Test Creator", "Current Creator"))
+    coordinatorApi.stubEntityAssociations(loadFixture("coordinator-1-rewrite.json"))
+    aapApi.stubSoftDeletedSinceQuery("""{"queries":[{"result":{"assessments":[]}}]}""")
+    sentencePlanSyncService.sync()
+
+    transactionTemplate.execute {
+      val snapshot = repository.findByIdAndVersion(PLAN_ID, VERSION).orElseThrow()
+      val current = repository.findByIdAndVersion(PLAN_ID, -1L).orElseThrow()
+      assertThat(snapshot.goals.single().createdByUserName).isEqualTo("Goal Creator")
+      assertThat(snapshot.goals.single().steps.single().createdByUserName).isEqualTo("Step Creator")
+      assertThat(snapshot.goals.single().freeTexts.single().createdByUserName).isEqualTo("Note Creator")
+      assertThat(snapshot.agreements.single().createdByUserName).isEqualTo("Agreement Creator")
+      assertThat(snapshot.goals.single().createdBySourceUserId).isEqualTo("goal.creator")
+      assertThat(snapshot.goals.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertThat(snapshot.goals.single().updatedBySourceUserId).isEqualTo("goal.updater")
+      assertThat(snapshot.goals.single().updatedByAuthSource).isEqualTo("NOT_SPECIFIED")
+      assertThat(snapshot.goals.single().steps.single().createdBySourceUserId).isEqualTo("12345")
+      assertThat(snapshot.goals.single().steps.single().createdByAuthSource).isEqualTo("OASYS")
+      assertThat(snapshot.goals.single().freeTexts.single().createdBySourceUserId).isEqualTo("note.creator")
+      assertThat(snapshot.goals.single().freeTexts.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertThat(snapshot.agreements.single().createdBySourceUserId).isEqualTo("agreement.creator")
+      assertThat(snapshot.agreements.single().createdByAuthSource).isEqualTo("FUTURE_IDENTITY_PROVIDER")
+      assertThat(snapshot.agreements.single().freeTexts.single().createdBySourceUserId).isEqualTo("agreement.creator")
+      assertThat(snapshot.agreements.single().freeTexts.single().createdByAuthSource).isEqualTo("FUTURE_IDENTITY_PROVIDER")
+      assertThat(current.goals.single().createdByUserName).isEqualTo("Current Creator")
+      assertThat(current.goals.single().createdBySourceUserId).isEqualTo("refreshed.goal.creator")
+      assertThat(current.goals.single().createdByAuthSource).isEqualTo("OASYS")
+      assertThat(current.goals.single().updatedBySourceUserId).isNull()
+      assertThat(current.goals.single().updatedByAuthSource).isNull()
+      assertThat(current.agreements.single().createdByUserName).isEqualTo("Rewrite Agreement Creator")
+      assertThat(current.agreements.single().freeTexts.single().createdByUserName).isEqualTo("Rewrite Agreement Creator")
+      assertThat(current.agreements.single().createdBySourceUserId).isEqualTo("refreshed.agreement.creator")
+      assertThat(current.agreements.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertThat(current.agreements.single().freeTexts.single().createdBySourceUserId).isEqualTo("refreshed.agreement.creator")
+      assertThat(current.agreements.single().freeTexts.single().createdByAuthSource).isEqualTo("HMPPS_AUTH")
+      assertViewSource("goal_vw", snapshot.goals.single().id, "goal.creator", "HMPPS_AUTH")
+      assertViewSource("goal_vw", current.goals.single().id, "refreshed.goal.creator", "OASYS")
     }
   }
 
@@ -96,6 +207,15 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
 
   private fun loadFixture(name: String): String = javaClass.classLoader.getResourceAsStream("fixtures/sync/$name")!!
     .bufferedReader().use { it.readText() }
+
+  private fun assertViewSource(view: String, id: UUID, sourceUserId: String?, authSource: String?, prefix: String = "created") {
+    val row = jdbcTemplate.queryForMap(
+      """SELECT ${prefix}_by_source_user_id, ${prefix}_by_auth_source FROM "assessment-view".$view WHERE id = ?""",
+      id,
+    )
+    assertThat(row["${prefix}_by_source_user_id"]).isEqualTo(sourceUserId)
+    assertThat(row["${prefix}_by_auth_source"]).isEqualTo(authSource)
+  }
 
   private fun event(incrementedAt: LocalDateTime) = CoordinatorEvent(
     eventType = EventType.OASYS_VERSION_EVENT,
@@ -118,6 +238,10 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
     private val PLAN_ID = UUID.fromString("00000001-1111-1111-1111-000000000001")
     private val REWRITE_GOAL_ID = UUID.fromString("00000001-aaaa-aaaa-aaaa-000000000099")
     private val REWRITE_AGREEMENT_ID = UUID.fromString("00000001-dddd-dddd-dddd-000000000099")
+    private val GOAL_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000001")
+    private val STEP_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000002")
+    private val NOTE_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000003")
+    private val AGREEMENT_CREATOR = UUID.fromString("99999999-9999-9999-9999-000000000004")
     private val FIRST_SEEN = LocalDateTime.parse("2026-06-10T14:23:20.123")
     private val REWRITTEN = LocalDateTime.parse("2026-06-11T09:00:00.000")
   }

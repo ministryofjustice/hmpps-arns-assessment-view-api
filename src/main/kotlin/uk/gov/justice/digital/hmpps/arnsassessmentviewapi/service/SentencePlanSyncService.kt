@@ -145,7 +145,7 @@ class SentencePlanSyncService(
         }
       }
       flagged
-    } ?: 0
+    }
   }
 
   // Watermark = previous sync's start time, so the window covers everything updated since the previous sync began
@@ -216,4 +216,12 @@ class SentencePlanSyncService(
   }
 }
 
-data class ItemAuthorship(val createdBy: UUID, val updatedBy: UUID?)
+data class ItemAuthorship(
+  val createdBy: UUID,
+  val updatedBy: UUID?,
+  val createdByName: String? = null,
+  val createdBySourceUserId: String? = null,
+  val createdByAuthSource: String? = null,
+  val updatedBySourceUserId: String? = null,
+  val updatedByAuthSource: String? = null,
+)
