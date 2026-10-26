@@ -6,7 +6,7 @@
           {
             "uuid": "00000000-0000-0000-0000-000000000001",
             "timestamp": "2026-01-01T10:00:00",
-            "user": {"id": "99999999-9999-9999-9999-000000000001", "name": "Goal Creator"},
+            "user": {"id": "99999999-9999-9999-9999-000000000001", "name": "Goal Creator", "userId": "goal.creator", "authSource": "HMPPS_AUTH"},
             "assessment": "00000001-1111-1111-1111-000000000001",
             "event": "CollectionItemAddedEvent",
             "data": {"collectionItemUuid": "00000001-aaaa-aaaa-aaaa-000000000001", "collection": "GOALS"}
@@ -14,7 +14,7 @@
           {
             "uuid": "00000000-0000-0000-0000-000000000002",
             "timestamp": "2026-01-01T10:00:00",
-            "user": {"id": "99999999-9999-9999-9999-000000000002", "name": "Step Creator"},
+            "user": {"id": "99999999-9999-9999-9999-000000000002", "name": "Step Creator", "userId": "12345", "authSource": "OASYS"},
             "assessment": "00000001-1111-1111-1111-000000000001",
             "event": "CollectionItemAddedEvent",
             "data": {"collectionItemUuid": "00000001-bbbb-bbbb-bbbb-000000000001", "collection": "STEPS"}
@@ -22,7 +22,7 @@
           {
             "uuid": "00000000-0000-0000-0000-000000000003",
             "timestamp": "2026-01-01T10:00:00",
-            "user": {"id": "99999999-9999-9999-9999-000000000003", "name": "Note Creator"},
+            "user": {"id": "99999999-9999-9999-9999-000000000003", "name": "Note Creator", "userId": "note.creator", "authSource": "HMPPS_AUTH"},
             "assessment": "00000001-1111-1111-1111-000000000001",
             "event": "CollectionItemAddedEvent",
             "data": {"collectionItemUuid": "00000001-cccc-cccc-cccc-000000000001", "collection": "NOTES"}
@@ -30,7 +30,7 @@
           {
             "uuid": "00000000-0000-0000-0000-000000000004",
             "timestamp": "2026-01-01T10:00:00",
-            "user": {"id": "99999999-9999-9999-9999-000000000004", "name": "Agreement Creator"},
+            "user": {"id": "99999999-9999-9999-9999-000000000004", "name": "Agreement Creator", "userId": "agreement.creator", "authSource": "FUTURE_IDENTITY_PROVIDER"},
             "assessment": "00000001-1111-1111-1111-000000000001",
             "event": "CollectionItemAddedEvent",
             "data": {"collectionItemUuid": "00000001-dddd-dddd-dddd-000000000001", "collection": "PLAN_AGREEMENTS"}
@@ -38,7 +38,7 @@
           {
             "uuid": "00000000-0000-0000-0000-000000000005",
             "timestamp": "2026-01-02T11:00:00",
-            "user": {"id": "99999999-9999-9999-9999-000000000099", "name": "Goal Updater"},
+            "user": {"id": "99999999-9999-9999-9999-000000000099", "name": "Goal Updater", "userId": "goal.updater", "authSource": "NOT_SPECIFIED"},
             "assessment": "00000001-1111-1111-1111-000000000001",
             "event": "CollectionItemPropertiesUpdatedEvent",
             "data": {"collection": "GOALS", "index": 0, "added": [], "removed": []},
