@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.IdentifierType
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanEntity
+import java.time.Instant
 import java.util.Optional
 import java.util.UUID
 
@@ -38,6 +39,27 @@ interface SentencePlanRepository : JpaRepository<SentencePlanEntity, UUID> {
     @Param("deleted") deleted: Boolean,
     @Param("versionFrom") versionFrom: Long,
     @Param("versionTo") versionTo: Long?,
+  ): Int
+
+  @Modifying
+  @Transactional
+  @Query(
+    value = """
+      UPDATE sentence_plan
+      SET oasys_pk = :oasysPk, region_code = :regionCode
+      WHERE id = :id
+        AND version = :version
+        AND updated_at = :updatedAt
+        AND (oasys_pk IS DISTINCT FROM :oasysPk OR region_code IS DISTINCT FROM :regionCode)
+    """,
+    nativeQuery = true,
+  )
+  fun updateSnapshotAssociation(
+    @Param("id") id: UUID,
+    @Param("version") version: Long,
+    @Param("updatedAt") updatedAt: Instant,
+    @Param("oasysPk") oasysPk: String?,
+    @Param("regionCode") regionCode: String?,
   ): Int
 
   // one row per (id, version).
