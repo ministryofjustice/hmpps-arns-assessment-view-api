@@ -1,6 +1,9 @@
 name: Integration Test
 
 on:
+  push:
+    branches:
+      - 'test/sentence-plan-api'
   workflow_dispatch:
     inputs:
       environment:
