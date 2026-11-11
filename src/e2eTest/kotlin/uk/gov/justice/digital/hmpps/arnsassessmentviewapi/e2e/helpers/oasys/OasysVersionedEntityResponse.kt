@@ -59,4 +59,3 @@ enum class EntityType {
   AAP_PLAN,
   AAP_SAN,
 }
-

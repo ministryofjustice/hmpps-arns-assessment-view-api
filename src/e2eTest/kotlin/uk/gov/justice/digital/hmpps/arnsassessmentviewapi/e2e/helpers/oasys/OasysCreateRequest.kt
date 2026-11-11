@@ -9,7 +9,6 @@ data class OasysCreateRequest(
   @field:Pattern(regexp = "\\d+", message = "Must only contain numeric characters")
   val oasysAssessmentPk: String,
 
-
   @field:Size(min = Constraints.OASYS_PK_MIN_LENGTH, max = Constraints.OASYS_PK_MAX_LENGTH)
   @field:Pattern(regexp = "\\d+", message = "Must only contain numeric characters")
   val previousOasysSanPk: String? = null,
