@@ -22,13 +22,30 @@ class SnapshotIngestService(
     val incomingAsOf = payload.incrementedAt.toInstant()
     val existing = sentencePlanRepository.findByIdAndVersion(envelope.entityUuid, payload.version).orElse(null)
 
-    if (existing != null && existing.updatedAt >= incomingAsOf) {
+    if (existing != null && existing.updatedAt > incomingAsOf) {
       log.info(
-        "Snapshot at {}@{} is at-or-newer than incoming event (stored={}, incoming={}); skipping",
+        "Snapshot at {}@{} is newer than incoming event (stored={}, incoming={}); skipping",
         envelope.entityUuid,
         payload.version,
         existing.updatedAt,
         incomingAsOf,
+      )
+      return
+    }
+
+    if (existing != null && existing.updatedAt == incomingAsOf) {
+      val updated = sentencePlanRepository.updateSnapshotAssociation(
+        id = envelope.entityUuid,
+        version = payload.version,
+        updatedAt = incomingAsOf,
+        oasysPk = payload.association.oasysAssessmentPk,
+        regionCode = payload.association.regionPrisonCode,
+      )
+      log.info(
+        "Association-only replay affected {} rows for {}@{} (0 means unchanged or no longer eligible)",
+        updated,
+        envelope.entityUuid,
+        payload.version,
       )
       return
     }

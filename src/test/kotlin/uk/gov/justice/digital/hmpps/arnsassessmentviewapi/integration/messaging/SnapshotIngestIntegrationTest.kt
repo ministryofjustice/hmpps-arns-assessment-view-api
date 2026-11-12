@@ -7,6 +7,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.TestPropertySource
@@ -147,6 +149,52 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
     }
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = [false, true])
+  fun `equal-timestamp replay only corrects associations and preserves all snapshot and nested data`(deleted: Boolean) {
+    stubAap("aap-query-1.json", "aap-timeline-1.json")
+    snapshotIngestService.ingestVersion(event(FIRST_SEEN), payload(FIRST_SEEN))
+    repository.markDeletedForRange(PLAN_ID, deleted, VERSION, VERSION + 1)
+    jdbcTemplate.update(
+      """
+        INSERT INTO "assessment-view".goal_related_area_of_need (goal_id, criminogenic_need)
+        SELECT id, 'FINANCES' FROM "assessment-view".goal
+      """.trimIndent(),
+    )
+    val before = snapshotRow()
+    val childrenBefore = childRows()
+    childrenBefore.forEach { (table, rows) -> assertThat(rows).describedAs(table).isNotEmpty() }
+    val corrected = payload(FIRST_SEEN).copy(
+      oasysEvent = OasysEvent.LOCKED,
+      deleted = !deleted,
+      association = AssociationPayload(oasysAssessmentPk = "historical-pk", regionPrisonCode = "HIST", baseVersion = VERSION),
+    )
+    val replay = event(FIRST_SEEN).copy(message = corrected)
+    aapApi.resetRequests()
+
+    snapshotIngestService.ingestVersion(replay, corrected)
+
+    val after = snapshotRow()
+    assertThat(after["oasys_pk"]).isEqualTo("historical-pk")
+    assertThat(after["region_code"]).isEqualTo("HIST")
+    assertThat(after["deleted"]).isEqualTo(deleted)
+    assertThat(after.filterKeys { it != "oasys_pk" && it != "region_code" })
+      .isEqualTo(before.filterKeys { it != "oasys_pk" && it != "region_code" })
+    val childrenAfter = childRows()
+    childrenBefore.forEach { (table, rows) ->
+      assertThat(childrenAfter.getValue(table)).describedAs(table).containsExactlyInAnyOrderElementsOf(rows)
+    }
+
+    snapshotIngestService.ingestVersion(replay, corrected)
+
+    assertThat(snapshotRow()).isEqualTo(after)
+    val childrenAfterRepeat = childRows()
+    childrenBefore.forEach { (table, rows) ->
+      assertThat(childrenAfterRepeat.getValue(table)).describedAs(table).containsExactlyInAnyOrderElementsOf(rows)
+    }
+    assertThat(aapApi.allServeEvents).isEmpty()
+  }
+
   @Test
   fun `current-state sync does not change creator names or source identities on an immutable snapshot`() {
     stubAap("aap-query-1.json", "aap-timeline-1.json")
@@ -192,6 +240,21 @@ class SnapshotIngestIntegrationTest : IntegrationTestBase() {
       assertViewSource("goal_vw", current.goals.single().id, "refreshed.goal.creator", "OASYS")
     }
   }
+
+  private fun snapshotRow() = jdbcTemplate.queryForMap(
+    """SELECT * FROM "assessment-view".sentence_plan WHERE id = ? AND version = ?""",
+    PLAN_ID,
+    VERSION,
+  )
+
+  private fun childRows() = listOf(
+    "sentence_plan_identifier",
+    "plan_agreement",
+    "goal",
+    "goal_related_area_of_need",
+    "step",
+    "free_text",
+  ).associateWith { table -> jdbcTemplate.queryForList("""SELECT * FROM "assessment-view".$table""") }
 
   private fun stubAap(query: String, timeline: String) {
     aapApi.stubAssessmentVersionQuery(versionQueryResponse(query))

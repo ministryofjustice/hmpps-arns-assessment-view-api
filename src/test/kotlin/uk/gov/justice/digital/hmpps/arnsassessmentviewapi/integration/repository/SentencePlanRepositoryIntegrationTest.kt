@@ -3,6 +3,9 @@ package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.repositor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.entity.SentencePlanEntity
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.integration.IntegrationTestBase
@@ -156,10 +159,85 @@ class SentencePlanRepositoryIntegrationTest : IntegrationTestBase() {
     assertThat(deletedFor(version = 400)).isFalse
   }
 
+  @ParameterizedTest
+  @CsvSource(
+    "old-pk, OLD, corrected-pk, NEW",
+    "old-pk, OLD, corrected-pk, OLD",
+    "old-pk, OLD, old-pk, NEW",
+    "old-pk, NULL, old-pk, NEW",
+    "old-pk, OLD, old-pk, NULL",
+    "NULL, OLD, corrected-pk, OLD",
+    "old-pk, OLD, NULL, OLD",
+    nullValues = ["NULL"],
+  )
+  fun `association correction is null-safe and idempotent`(oldPk: String?, oldRegion: String?, newPk: String?, newRegion: String?) {
+    insertSnapshot(version = 100, oasysPk = oldPk, regionCode = oldRegion)
+    val original = repository.findByIdAndVersion(entityId, 100).orElseThrow()
+
+    assertThat(repository.updateSnapshotAssociation(entityId, 100, original.updatedAt, newPk, newRegion)).isEqualTo(1)
+
+    val corrected = repository.findByIdAndVersion(entityId, 100).orElseThrow()
+    assertThat(corrected.oasysPk).isEqualTo(newPk)
+    assertThat(corrected.regionCode).isEqualTo(newRegion)
+    assertThat(repository.updateSnapshotAssociation(entityId, 100, original.updatedAt, newPk, newRegion)).isZero()
+  }
+
+  @Test
+  fun `identical association replay changes zero rows`() {
+    insertSnapshot(version = 100, oasysPk = "same-pk", regionCode = "SAME")
+    val original = repository.findByIdAndVersion(entityId, 100).orElseThrow()
+
+    assertThat(repository.updateSnapshotAssociation(entityId, 100, original.updatedAt, "same-pk", "SAME")).isZero()
+  }
+
+  @Test
+  fun `association correction uses logical plan id and version and leaves other snapshots untouched`() {
+    insertSnapshot(version = 100, oasysPk = "old-pk", regionCode = "OLD")
+    insertSnapshot(version = 200, oasysPk = "old-pk", regionCode = "OLD")
+    insertSnapshot(version = SentencePlanEntity.CURRENT_VERSION, oasysPk = "old-pk", regionCode = "OLD")
+    insertSnapshot(version = 100, entityId = otherEntityId, oasysPk = "old-pk", regionCode = "OLD")
+    val original = repository.findByIdAndVersion(entityId, 100).orElseThrow()
+
+    assertThat(repository.updateSnapshotAssociation(original.snapshotId, 100, original.updatedAt, "wrong", "WRONG")).isZero()
+    assertThat(repository.updateSnapshotAssociation(entityId, 100, original.updatedAt, "corrected-pk", "NEW")).isEqualTo(1)
+
+    assertThat(repository.findByIdAndVersion(entityId, 100).orElseThrow().oasysPk).isEqualTo("corrected-pk")
+    listOf(entityId to 200L, entityId to SentencePlanEntity.CURRENT_VERSION, otherEntityId to 100L).forEach { (id, version) ->
+      val untouched = repository.findByIdAndVersion(id, version).orElseThrow()
+      assertThat(untouched.oasysPk).isEqualTo("old-pk")
+      assertThat(untouched.regionCode).isEqualTo("OLD")
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(longs = [-1, 1])
+  fun `association correction requires the stored timestamp to still match`(offsetSeconds: Long) {
+    insertSnapshot(version = 100, oasysPk = "old-pk", regionCode = "OLD")
+    val original = repository.findByIdAndVersion(entityId, 100).orElseThrow()
+    // Simulate a replacement committed after ingestion's initial read.
+    repository.save(original.apply { updatedAt = updatedAt.plusSeconds(offsetSeconds) })
+
+    val staleTimestamp = original.updatedAt.minusSeconds(offsetSeconds)
+    assertThat(repository.updateSnapshotAssociation(entityId, 100, staleTimestamp, "corrected-pk", "NEW")).isZero()
+
+    val untouched = repository.findByIdAndVersion(entityId, 100).orElseThrow()
+    assertThat(untouched.updatedAt).isEqualTo(original.updatedAt)
+    assertThat(untouched.oasysPk).isEqualTo("old-pk")
+    assertThat(untouched.regionCode).isEqualTo("OLD")
+  }
+
+  @Test
+  fun `association correction does not insert a missing snapshot`() {
+    assertThat(repository.updateSnapshotAssociation(entityId, 100, Instant.parse("2026-06-12T00:00:00Z"), "pk", null)).isZero()
+    assertThat(repository.findByIdAndVersion(entityId, 100)).isEmpty()
+  }
+
   private fun insertSnapshot(
     version: Long,
     entityId: UUID = this.entityId,
     deleted: Boolean = false,
+    oasysPk: String? = null,
+    regionCode: String? = null,
   ) {
     val now = Instant.parse("2026-06-12T00:00:00Z")
     repository.save(
@@ -171,6 +249,8 @@ class SentencePlanRepositoryIntegrationTest : IntegrationTestBase() {
         lastSyncedAt = now,
         version = version,
         deleted = deleted,
+        oasysPk = oasysPk,
+        regionCode = regionCode,
       ),
     )
   }
