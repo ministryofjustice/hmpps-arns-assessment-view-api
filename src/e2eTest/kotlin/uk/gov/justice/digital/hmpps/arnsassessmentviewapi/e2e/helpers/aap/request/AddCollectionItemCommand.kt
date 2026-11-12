@@ -1,7 +1,7 @@
 package uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.aap.request
 
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UserDetails
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.Value
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.oasys.UserDetails
 import java.util.UUID
 
 data class AddCollectionItemCommand(

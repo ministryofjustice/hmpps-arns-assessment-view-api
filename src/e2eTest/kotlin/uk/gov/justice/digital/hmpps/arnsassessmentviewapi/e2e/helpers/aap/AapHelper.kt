@@ -5,12 +5,12 @@ import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.test.web.reactive.server.expectBody
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.MultiValue
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.SingleValue
+import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.client.dto.UserDetails
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.aap.request.AddCollectionItemCommand
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.aap.request.CommandsRequest
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.aap.request.CreateCollectionCommand
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.aap.response.CreateCollectionItemResult
 import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.aap.response.CreateCollectionResult
-import uk.gov.justice.digital.hmpps.arnsassessmentviewapi.e2e.helpers.oasys.UserDetails
 import java.util.UUID
 
 object AapHelper {

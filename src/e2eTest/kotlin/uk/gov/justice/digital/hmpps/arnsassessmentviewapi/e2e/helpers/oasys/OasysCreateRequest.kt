@@ -68,31 +68,12 @@ data class OasysUserDetails(
   val name: String = "",
 )
 
-data class UserDetails(
-  val id: String,
-  val name: String,
-  val type: UserType? = null,
-)
-
-enum class UserType {
-  OASYS,
-  ARNS,
-}
-
 data class SubjectDetails(
   val crn: String? = null,
-
   val nomisId: String? = null,
 )
 
 enum class SanAssessmentType {
   COMMUNITY,
   CUSTODY,
-}
-
-enum class EntityType {
-  ASSESSMENT,
-  PLAN,
-  AAP_PLAN,
-  AAP_SAN,
 }
