@@ -40,7 +40,7 @@ jobs:
           AAP_CLIENT_ID: ${{ secrets.ARNS_ASSESSMENT_CLIENT_ID }}
           AAP_CLIENT_SECRET: ${{ secrets.ARNS_ASSESSMENT_CLIENT_SECRET }}
           AAP_TEST_URL: ${{ fromJSON(vars.INT_TEST_DATA)[inputs.environment].aapUrl }}
-          ARNS_COORDINATOR_URL: ${{ fromJSON(vars.INT_TEST_DATA)[inputs.environment].coordinatorUrl }}
+          COORDINATOR_TEST_URL: ${{ fromJSON(vars.INT_TEST_DATA)[inputs.environment].coordinatorUrl }}
           ARNS_ASSESSMENT_VIEW_BASE_URL: ${{ fromJSON(vars.INT_TEST_DATA)[inputs.environment].url }}
 
       - name: Upload test results
