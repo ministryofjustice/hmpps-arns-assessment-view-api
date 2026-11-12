@@ -5,6 +5,17 @@ plugins {
   id("org.jetbrains.kotlinx.kover") version "0.9.11"
 }
 
+sourceSets {
+  create("e2eTest") {
+    compileClasspath += sourceSets["main"].output + sourceSets["test"].output
+    runtimeClasspath += sourceSets["main"].output + sourceSets["test"].output
+  }
+}
+
+configurations.named("e2eTestImplementation") {
+  extendsFrom(configurations.testImplementation.get())
+}
+
 dependencies {
   implementation("uk.gov.justice.service.hmpps:hmpps-kotlin-spring-boot-starter:3.1.0")
   implementation("uk.gov.justice.service.hmpps:hmpps-sqs-spring-boot-starter:7.4.1")
@@ -37,6 +48,7 @@ tasks {
 
   test {
     exclude("**/integration/**")
+    exclude("**/src/integrationTest/**")
   }
 
   register<Test>("integrationTest") {
@@ -49,6 +61,29 @@ tasks {
   named("check") {
     dependsOn("integrationTest")
   }
+}
+
+tasks.register<Test>("e2eTest") {
+  description = "Runs end-to-end tests."
+  group = "verification"
+
+  testClassesDirs = sourceSets["e2eTest"].output.classesDirs
+  classpath = sourceSets["e2eTest"].runtimeClasspath
+
+  // Optional: Force tests to run even if outputs haven't changed
+  outputs.upToDateWhen { false }
+
+  useJUnitPlatform()
+}
+
+tasks.named("e2eTest") {
+  onlyIf {
+    !gradle.startParameter.taskNames.any { it.contains("koverHtmlReport") }
+  }
+}
+
+tasks.check {
+  dependsOn(tasks.named("e2eTest"))
 }
 
 kover {

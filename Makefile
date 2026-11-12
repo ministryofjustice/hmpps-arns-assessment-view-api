@@ -1,6 +1,7 @@
 SHELL = '/bin/bash'
 LOCAL_COMPOSE_FILES = -f docker/docker-compose.yml -f docker/docker-compose.local.yml
 DEV_COMPOSE_FILES = -f docker/docker-compose.yml -f docker/docker-compose.local.yml -f docker/docker-compose.dev.yml
+E2E_TEST_COMPOSE_FILES = -f docker/docker-compose.integration.yml
 SERVICE_NAME = assessment-view-api
 
 default: help
@@ -37,6 +38,12 @@ integration-test: ## Runs integration tests.
 	   --env HMPPS_AUTH_URL=http://localhost:8090/auth \
 	   ${SERVICE_NAME} \
 	   gradle integrationTest --parallel
+
+e2e-test-dev: ## Runs all end-to-end tests
+	docker compose ${E2E_TEST_COMPOSE_FILES} run --rm --env ARNS_ASSESSMENT_VIEW_BASE_URL="https://arns-assessment-view-api-dev.hmpps.service.justice.gov.uk"  --env AAP_TEST_URL="https://arns-assessment-platform-api-dev.hmpps.service.justice.gov.uk" --env COORDINATOR_TEST_URL="https://arns-coordinator-api-dev.hmpps.service.justice.gov.uk" int gradle e2eTest
+
+e2e-test-test: ## Runs on test environment
+	docker compose ${E2E_TEST_COMPOSE_FILES} run --rm --env ARNS_ASSESSMENT_VIEW_BASE_URL="https://arns-assessment-view-api-test.hmpps.service.justice.gov.uk"  --env AAP_TEST_URL="https://arns-assessment-platform-api-test.hmpps.service.justice.gov.uk" --env COORDINATOR_TEST_URL="https://arns-coordinator-api-test.hmpps.service.justice.gov.uk" int gradle e2eTest
 
 lint: ## Runs the Kotlin linter.
 	docker compose ${DEV_COMPOSE_FILES} exec ${SERVICE_NAME} gradle ktlintCheck --parallel

@@ -1,0 +1,19 @@
+services:
+  int:
+    build:
+      context: ..
+      target: development
+      dockerfile: Dockerfile
+    command: gradle --parallel --build-cache --configuration-cache --info cleanTest test
+    volumes:
+      - ..:/app
+      - ./.gradle:/home/gradle/.gradle
+    environment:
+      - ARNS_ASSESSMENT_VIEW_CLIENT_ID
+      - ARNS_ASSESSMENT_VIEW_CLIENT_SECRET
+      - AAP_CLIENT_ID
+      - AAP_CLIENT_SECRET
+
+volumes:
+  .gradle:
+  build:
