@@ -38,3 +38,20 @@ SELECT id, goal_id, description_length, description_hash::varchar(100) AS descri
        created_by_source_user_id AS created_by_user_id, created_at,
        created_by_user_name, created_by_source_user_id, created_by_auth_source
 FROM "assessment-view".step;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_roles
+        WHERE rolname = 'oasys_national_reporting_user'
+    ) THEN
+        GRANT SELECT ON
+            "assessment-view".free_text_vw,
+            "assessment-view".goal_vw,
+            "assessment-view".plan_agreement_vw,
+            "assessment-view".step_vw
+        TO oasys_national_reporting_user;
+    END IF;
+END
+$$;
