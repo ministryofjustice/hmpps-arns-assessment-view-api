@@ -1,3 +1,11 @@
+-- Recreate the reporting views to expose created_by_source_user_id as
+-- created_by_user_id, replacing the original column projection and changing
+-- the view column type from UUID to TEXT. Underlying table data is unchanged.
+DROP VIEW "assessment-view".free_text_vw;
+DROP VIEW "assessment-view".goal_vw;
+DROP VIEW "assessment-view".plan_agreement_vw;
+DROP VIEW "assessment-view".step_vw;
+
 -- Replace the value exposed as created_by_user_id in the reporting views with
 -- created_by_source_user_id, aliased as created_by_user_id. This replaces the
 -- projection of the underlying created_by_user_id column; table data is unchanged.
